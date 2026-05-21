@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Codes - Funcionários</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+    }
+    .qrcode-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      width: 250px;
+    }
+    .card h3 {
+      margin-top: 0;
+    }
+    .info {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
+    }
+    .info code {
+      background: #f9f9f9;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>QR Codes - Funcionários</h2>
+    <div class="qrcode-container" id="qrcodes"></div>
+  </div>
+
+  <script>
+    async function loadFuncionarios() {
+      const response = await fetch('/api/employees');
+      const funcionarios = await response.json();
+
+      const container = document.getElementById('qrcodes');
+
+      funcionarios.forEach(funcionario => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const title = document.createElement('h3');
+        title.textContent = funcionario.nome;
+        card.appendChild(title);
+
+        const canvas = document.createElement('canvas');
+        card.appendChild(canvas);
+
+        const info = document.createElement('div');
+        info.className = 'info';
+        const json = JSON.stringify(funcionario);
+        info.innerHTML = `Conteúdo do QR Code:<br><code>${json}</code>`;
+        card.appendChild(info);
+
+        container.appendChild(card);
+
+        QRCode.toCanvas(canvas, json, {
+          width: 220,
+          color: {
+            dark: "#000000",
+            light: "#ffffff"
+          }
+        }, function (error) {
+          if (error) console.error(error);
+        });
+      });
+    }
+
+    window.onload = loadFuncionarios;
+  </script>
+
+</body>
+</html>
