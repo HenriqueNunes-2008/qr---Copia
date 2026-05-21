@@ -1,0 +1,17 @@
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Variáveis de ambiente (Segurança!)
+.env
+
+# Arquivos temporários do Python
+__pycache__/
+*.py[cod]
+
+# Arquivos de dados locais
+registros.xlsx
+Registro_qr/employees.json
+Registro_qr/orcamentos.json
+Registro_qr/config.json

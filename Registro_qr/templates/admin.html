@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Gerenciar Configurações</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #333;
+            color: white;
+            margin: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #444;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: white;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        .section h2 {
+            border-bottom: 1px solid #777;
+            padding-bottom: 5px;
+            color: white;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        input, select, button {
+            padding: 8px;
+            font-size: 16px;
+            background-color: #555;
+            color: white;
+            border: 1px solid #777;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .item {
+            background: #666;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+        .delete-btn {
+            background: red;
+            color: white;
+            border: none;
+            padding: 2px 5px;
+            cursor: pointer;
+        }
+        a {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Administração</h1>
+
+        <div class="section">
+            <h2>Gerenciar Áreas</h2>
+            <form id="addAreaForm">
+                <input type="text" id="newArea" placeholder="Nova Área" required>
+                <button type="submit">Adicionar Área</button>
+            </form>
+            <form id="deleteAreaForm" style="margin-top: 10px;">
+                <input type="text" id="deleteArea" placeholder="Nome da Área a Excluir" required>
+                <button type="submit">Excluir Área</button>
+            </form>
+            <div id="areasList" class="list"></div>
+        </div>
+
+        <div class="section">
+            <h2>Gerenciar Projetos</h2>
+            <form id="addProjetoForm">
+                <input type="text" id="newProjeto" placeholder="Novo Projeto" required>
+                <button type="submit">Adicionar Projeto</button>
+            </form>
+            <form id="deleteProjetoForm" style="margin-top: 10px;">
+                <input type="text" id="deleteProjeto" placeholder="Nome do Projeto a Excluir" required>
+                <button type="submit">Excluir Projeto</button>
+            </form>
+            <div id="projetosList" class="list"></div>
+        </div>
+
+        <div class="section">
+            <h2>Adicionar Funcionário</h2>
+            <form id="addEmployeeForm">
+                <input type="text" id="employeeId" placeholder="ID" required>
+                <input type="text" id="employeeName" placeholder="Nome" required>
+                <button type="submit">Adicionar Funcionário</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Definir Orçamento de Horas</h2>
+            <form id="addOrcamentoForm">
+                <select id="orcamentoArea" required>
+                    <option value="">Selecione Área</option>
+                </select>
+                <select id="orcamentoProjeto" required>
+                    <option value="">Selecione Projeto</option>
+                </select>
+                <input type="text" id="orcamentoNumero" placeholder="Número do Projeto" required>
+                <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
+                <button type="submit">Definir Orçamento</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Selecionar Gráficos</h2>
+            <form id="selectChartsForm">
+                <label><input type="checkbox" id="chartBar" value="bar"> Gráfico de Barras</label><br>
+                <label><input type="checkbox" id="chartDoughnut" value="doughnut"> Gráfico de Rosca</label><br>
+                <button type="submit">Salvar Seleção</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Gerar QR Codes</h2>
+            <a href="/qrcodes">Ver QR Codes dos Funcionários</a>
+        </div>
+    </div>
+
+    <script>
+        async function loadAreas() {
+            const response = await fetch('/static/config.js');
+            const script = await response.text();
+            eval(script);
+            const areasList = document.getElementById('areasList');
+            areasList.innerHTML = '';
+            AREAS.forEach(area => {
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.innerHTML = `
+                    ${area}
+                    <button class="delete-btn" onclick="deleteArea('${area}')">X</button>
+                `;
+                areasList.appendChild(item);
+            });
+        }
+
+        async function loadProjetos() {
+            const response = await fetch('/static/config.js');
+            const script = await response.text();
+            eval(script);
+            const projetosList = document.getElementById('projetosList');
+            projetosList.innerHTML = '';
+            PROJETOS.forEach(projeto => {
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.innerHTML = `
+                    ${projeto}
+                    <button class="delete-btn" onclick="deleteProjeto('${projeto}')">X</button>
+                `;
+                projetosList.appendChild(item);
+            });
+        }
+
+        async function deleteArea(area) {
+            const response = await fetch('/admin/delete_area', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ area })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                loadAreas();
+            } else {
+                alert(result.message);
+            }
+        }
+
+        async function deleteProjeto(projeto) {
+            const response = await fetch('/admin/delete_projeto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projeto })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                loadProjetos();
+            } else {
+                alert(result.message);
+            }
+        }
+
+        document.getElementById('addAreaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const area = document.getElementById('newArea').value;
+            const response = await fetch('/admin/add_area', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ area })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                document.getElementById('newArea').value = '';
+                loadAreas();
+            } else {
+                alert(result.message);
+            }
+        });
+
+        document.getElementById('addProjetoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const projeto = document.getElementById('newProjeto').value;
+            const response = await fetch('/admin/add_projeto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projeto })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                document.getElementById('newProjeto').value = '';
+                loadProjetos();
+            } else {
+                alert(result.message);
+            }
+        });
+
+        document.getElementById('deleteAreaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const area = document.getElementById('deleteArea').value;
+            const response = await fetch('/admin/delete_area', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ area })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                document.getElementById('deleteArea').value = '';
+                loadAreas();
+            } else {
+                alert(result.message);
+            }
+        });
+
+        document.getElementById('deleteProjetoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const projeto = document.getElementById('deleteProjeto').value;
+            const response = await fetch('/admin/delete_projeto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projeto })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                document.getElementById('deleteProjeto').value = '';
+                loadProjetos();
+            } else {
+                alert(result.message);
+            }
+        });
+
+        document.getElementById('addEmployeeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('employeeId').value;
+            const nome = document.getElementById('employeeName').value;
+            const response = await fetch('/admin/add_employee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, nome })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                document.getElementById('employeeId').value = '';
+                document.getElementById('employeeName').value = '';
+                alert('Funcionário adicionado com sucesso!');
+            } else {
+                alert(result.message);
+            }
+        });
+
+        async function populateSelects() {
+            const response = await fetch('/static/config.js');
+            const script = await response.text();
+            eval(script);
+            const areaSelect = document.getElementById('orcamentoArea');
+            const projetoSelect = document.getElementById('orcamentoProjeto');
+            AREAS.forEach(area => {
+                const option = document.createElement('option');
+                option.value = area;
+                option.textContent = area;
+                areaSelect.appendChild(option);
+            });
+            PROJETOS.forEach(projeto => {
+                const option = document.createElement('option');
+                option.value = projeto;
+                option.textContent = projeto;
+                projetoSelect.appendChild(option);
+            });
+        }
+
+        async function loadCharts() {
+            const response = await fetch('/static/config.js');
+            const script = await response.text();
+            eval(script);
+            document.getElementById('chartBar').checked = CHARTS.includes('bar');
+            document.getElementById('chartDoughnut').checked = CHARTS.includes('doughnut');
+        }
+
+        document.getElementById('selectChartsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const selectedCharts = [];
+            if (document.getElementById('chartBar').checked) selectedCharts.push('bar');
+            if (document.getElementById('chartDoughnut').checked) selectedCharts.push('doughnut');
+            const response = await fetch('/admin/select_charts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ charts: selectedCharts })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                alert('Seleção de gráficos salva com sucesso!');
+            } else {
+                alert(result.message);
+            }
+        });
+
+        document.getElementById('addOrcamentoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const area = document.getElementById('orcamentoArea').value;
+            const projeto = document.getElementById('orcamentoProjeto').value;
+            const numeroProjeto = document.getElementById('orcamentoNumero').value;
+            const horasOrcadas = parseFloat(document.getElementById('orcamentoHoras').value);
+            const response = await fetch('/admin/add_orcamento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ area, projeto, numeroProjeto, horasOrcadas })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                document.getElementById('orcamentoArea').value = '';
+                document.getElementById('orcamentoProjeto').value = '';
+                document.getElementById('orcamentoNumero').value = '';
+                document.getElementById('orcamentoHoras').value = '';
+                alert('Orçamento definido com sucesso!');
+            } else {
+                alert(result.message);
+            }
+        });
+
+        window.onload = () => {
+            loadAreas();
+            loadProjetos();
+            populateSelects();
+            loadCharts();
+        };
+    </script>
+</body>
+</html>
