@@ -7,7 +7,11 @@ import os
 import json
 from datetime import datetime, date, time
 from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
 from flask_bcrypt import Bcrypt # Para hash de senhas
+
+# Carrega as variáveis de ambiente do arquivo .env antes de qualquer configuração
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -15,10 +19,10 @@ EXCEL_FILE = "registros.xlsx"
 
 # --- Configurações do Banco de Dados PostgreSQL com SQLAlchemy ---
 # A URL do banco de dados será lida de uma variável de ambiente.
-# Exemplo: postgresql://user:password@host:port/dbname
-# Para desenvolvimento local, pode-se usar SQLite.
+# O uso de aspas no .env e %23 para o '#' resolve problemas de caracteres especiais.
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///site.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
 # A SECRET_KEY é essencial para segurança de sessões e deve ser uma string longa e aleatória.
 # Em produção, deve ser definida via variável de ambiente.
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "uma_chave_secreta_muito_segura_e_longa_para_producao")
@@ -34,9 +38,12 @@ class User(db.Model):
     Modelo para usuários do sistema (ex: administradores).
     Inclui um status para o fluxo de aprovação de cadastro.
     """
+    __tablename__ = 'usuarios'
+    
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     status = db.Column(db.String(20), default='pending', nullable=False) # 'pending', 'active', 'inactive'
 
     def __repr__(self):
@@ -532,17 +539,18 @@ def register_user():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    email = data.get('email')
 
-    if not username or not password:
-        return jsonify({"status": "error", "message": "Usuário e senha são obrigatórios."})
+    if not username or not password or not email:
+        return jsonify({"status": "error", "message": "Usuário, senha e e-mail são obrigatórios."})
 
-    existing_user = User.query.filter_by(username=username).first()
+    existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
     if existing_user:
-        return jsonify({"status": "error", "message": "Nome de usuário já existe."})
+        return jsonify({"status": "error", "message": "Usuário ou e-mail já cadastrado."})
 
     # Gera o hash da senha antes de salvar no banco de dados
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(username=username, password_hash=hashed_password, status='pending')
+    new_user = User(username=username, password_hash=hashed_password, email=email, status='pending')
     db.session.add(new_user)
     db.session.commit()
     return jsonify({"status": "ok", "message": "Usuário registrado com sucesso. Aguardando aprovação do administrador."})
@@ -695,7 +703,7 @@ if __name__ == '__main__':
         # Isso é útil para o primeiro acesso ao painel de administração.
         if User.query.filter_by(username='admin').first() is None:
             hashed_password = bcrypt.generate_password_hash('admin').decode('utf-8')
-            admin_user = User(username='admin', password_hash=hashed_password, status='active')
+            admin_user = User(username='admin', password_hash=hashed_password, email='admin@fleximedical.com.br', status='active')
             db.session.add(admin_user)
             db.session.commit()
             print("Usuário 'admin' criado com senha 'admin' e status 'active'.")

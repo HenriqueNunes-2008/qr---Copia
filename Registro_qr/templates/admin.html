@@ -132,6 +132,47 @@
         </div>
 
         <div class="section">
+            <h2>Gerenciar Usuários (Acessos)</h2>
+            <p>Contas pendentes precisam de aprovação para realizar login.</p>
+            <div id="usersList" style="margin-top: 10px; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; background: #555; text-align: left;">
+                    <thead>
+                        <tr style="background: #666;">
+                            <th style="padding: 10px; border: 1px solid #777;">Usuário</th>
+                            <th style="padding: 10px; border: 1px solid #777;">E-mail</th>
+                            <th style="padding: 10px; border: 1px solid #777;">Status</th>
+                            <th style="padding: 10px; border: 1px solid #777;">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td style="padding: 10px; border: 1px solid #777;">{{ user.username }}</td>
+                            <td style="padding: 10px; border: 1px solid #777;">{{ user.email }}</td>
+                            <td style="padding: 10px; border: 1px solid #777;">{{ user.status }}</td>
+                            <td style="padding: 10px; border: 1px solid #777;">
+                                {% if user.status == 'pending' %}
+                                <button onclick="updateUserStatus({{ user.id }}, 'active')" style="background: green; padding: 5px; width: auto;">Aprovar</button>
+                                {% elif user.username != 'admin' %}
+                                <button onclick="updateUserStatus({{ user.id }}, 'inactive')" style="background: #d9534f; padding: 5px; width: auto;">Inativar</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top: 20px;">Cadastrar Novo Usuário</h3>
+            <form id="registerUserForm">
+                <input type="text" id="regUsername" placeholder="Nome de Usuário" required>
+                <input type="email" id="regEmail" placeholder="E-mail" required>
+                <input type="password" id="regPassword" placeholder="Senha" required>
+                <button type="submit">Solicitar Cadastro</button>
+            </form>
+        </div>
+
+        <div class="section">
             <h2>Selecionar Gráficos</h2>
             <form id="selectChartsForm">
                 <label><input type="checkbox" id="chartBar" value="bar"> Gráfico de Barras</label><br>
@@ -147,6 +188,39 @@
     </div>
 
     <script>
+        async function updateUserStatus(userId, status) {
+            const response = await fetch('/admin/update_user_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, status: status })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                location.reload();
+            } else {
+                alert(result.message);
+            }
+        }
+
+        document.getElementById('registerUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const response = await fetch('/register_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, email })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                alert('Cadastro solicitado com sucesso! Aguarde a aprovação.');
+                location.reload();
+            } else {
+                alert(result.message);
+            }
+        });
+
         async function loadAreas() {
             const response = await fetch('/static/config.js');
             const script = await response.text();
