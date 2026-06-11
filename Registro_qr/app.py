@@ -1,11 +1,11 @@
-from flask import Flask, request, render_template, jsonify, Response, redirect, url_for, session
+from flask import Flask, request, render_template, jsonify, Response, redirect, url_for, session, send_file
 from openpyxl import Workbook, load_workbook
 from openpyxl.chart import BarChart, Reference, DoughnutChart
 from openpyxl.styles import Font, Alignment
 from openpyxl.worksheet.table import Table, TableStyleInfo
 import os
 import json
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_bcrypt import Bcrypt # Para hash de senhas
@@ -15,6 +15,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Nome do arquivo Excel para registros e gráficos
 EXCEL_FILE = "registros.xlsx"
 
 # --- Configurações do Banco de Dados PostgreSQL com SQLAlchemy ---
@@ -148,51 +149,70 @@ def load_initial_data_from_db():
             print("Erro ao ler config.json. Usando configuração de gráficos padrão.")
             pass
 
+def _get_processed_report_data():
+    """
+    Calcula e retorna os dados processados para relatórios (horas trabalhadas, orçadas, etc.).
+    Retorna:
+        tuple: (all_registros, all_orcamentos_db, report_data)
+            - all_registros: Lista de todos os objetos Registro.
+            - all_orcamentos_db: Lista de todos os objetos Orcamento.
+            - report_data: Lista de dicionários com dados processados para a aba 'Gráficos'.
+    """
+    all_registros = Registro.query.order_by(Registro.data.desc(), Registro.hora_inicio.desc()).all()
+    all_orcamentos_db = Orcamento.query.order_by(Orcamento.area_nome, Orcamento.projeto_nome, Orcamento.numero_projeto).all()
+
+    # Calcula horas trabalhadas por área/projeto/número a partir dos registros do DB
+    horas_trabalhadas = {}
+    for reg in all_registros:
+        if reg.hora_inicio and reg.hora_fim and reg.area_nome and reg.projeto_nome:
+            try:
+                dt_inicio = datetime.combine(date.min, reg.hora_inicio)
+                dt_fim = datetime.combine(date.min, reg.hora_fim)
+                # Garante que a hora fim é maior que a hora início para cálculo correto
+                if dt_fim < dt_inicio:
+                    # Se a hora fim for no dia seguinte, adiciona 24 horas
+                    dt_fim += timedelta(days=1)
+                horas = (dt_fim - dt_inicio).total_seconds() / 3600
+                key = f"{reg.area_nome} - {reg.projeto_nome}"
+                horas_trabalhadas[key] = horas_trabalhadas.get(key, 0) + horas
+            except Exception as e:
+                print(f"Erro ao calcular horas para registro {reg.id}: {e}")
+                pass
+
+    report_data = []
+    for orc in all_orcamentos_db:
+        key = f"{orc.area_nome} - {orc.projeto_nome}"
+        trabalhadas = horas_trabalhadas.get(key, 0)
+        orcadas = orc.horas_orcadas
+        restantes = max(0, orcadas - trabalhadas) # Horas restantes não podem ser negativas
+        percentual = (trabalhadas / orcadas) * 100 if orcadas > 0 else 0
+
+        report_data.append({
+            "key": key,
+            "area_nome": orc.area_nome,
+            "projeto_nome": orc.projeto_nome,
+            "numero_projeto": orc.numero_projeto,
+            "horas_trabalhadas": round(trabalhadas, 2),
+            "horas_orcadas": orcadas,
+            "horas_restantes": round(restantes, 2),
+            "percentual": round(percentual, 2)
+        })
+    
+    return all_registros, all_orcamentos_db, report_data
+
+
 # --- Funções de Geração de Excel e Gráficos (adaptadas para SQLAlchemy) ---
 def criar_planilha_se_nao_existir():
     """
-    Cria o arquivo Excel 'registros.xlsx' com as abas 'Registros' e 'Gráficos'
-    e seus cabeçalhos, caso o arquivo não exista.
+    Garante que o arquivo Excel exista ou seja criado.
     """
     if not os.path.exists(EXCEL_FILE):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Registros"
-        headers = ["Data", "ID", "Nome", "Área", "Projeto", "Número Projeto", "Hora Início", "Hora Fim", "Ação"]
-        ws.append(headers)
-        # Formatar cabeçalhos
-        for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col_num)
-            cell.font = Font(bold=True)
-            cell.alignment = Alignment(horizontal='center')
-        # Ajustar larguras das colunas
-        column_widths = [12, 10, 30, 20, 15, 20, 15, 15, 10] # Ajustado para datas e horas
-        for i, width in enumerate(column_widths, 1):
-            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
-
-        # Criar aba de gráficos
-        ws_chart = wb.create_sheet("Gráficos")
-        ws_chart.append(["Área/Projeto", "Horas Trabalhadas", "Horas Orçadas", "Horas Restantes", "Percentual (%)"])
-        # Formatar cabeçalhos
-        for col_num, header in enumerate(["Área/Projeto", "Horas Trabalhadas", "Horas Orçadas", "Horas Restantes", "Percentual (%)"], 1):
-            cell = ws_chart.cell(row=1, column=col_num)
-            cell.font = Font(bold=True)
-            cell.alignment = Alignment(horizontal='center')
-        # Ajustar larguras das colunas
-        column_widths = [30, 18, 18, 18, 18] # Ajustado
-        for i, width in enumerate(column_widths, 1):
-            ws_chart.column_dimensions[ws_chart.cell(row=1, column=i).column_letter].width = width
-
-        wb.save(EXCEL_FILE)
-    else:
-        # Atualizar gráficos sempre que salvar
-        # Esta chamada foi movida para o final do `registrar` e `add_orcamento`
-        pass
+        atualizar_graficos()
 
 @app.route('/')
 def index():
     """Renderiza a página inicial do leitor de QR Code."""
-    criar_planilha_se_nao_existir()
+    criar_planilha_se_nao_existir() # Garante que o arquivo Excel existam
     return render_template('index.html')
 
 @app.route('/verificar', methods=['POST'])
@@ -270,8 +290,7 @@ def registrar():
         db.session.add(novo_registro)
         db.session.commit() # Salva o novo funcionário (se criado) e o registro
 
-        # Após salvar no DB, atualiza o arquivo Excel e os gráficos
-        # criar_planilha_se_nao_existir() - chamando apenas atualização de gráficos
+        # Após salvar no DB, atualiza o arquivo Excel
         atualizar_graficos()
 
         return jsonify({"status": "ok", "acao": "registro"})
@@ -571,23 +590,66 @@ def update_user_status():
         return jsonify({"status": "ok"})
     return jsonify({"status": "error", "message": "Usuário não encontrado."})
 
+@app.route('/admin/download_excel')
+def download_excel():
+    """Permite ao administrador baixar o arquivo Excel de registros."""
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+    
+    # Atualiza os gráficos/dados antes de enviar para garantir que o arquivo esteja em dia
+    atualizar_graficos()
+    
+    if os.path.exists(EXCEL_FILE):
+        return send_file(os.path.abspath(EXCEL_FILE), as_attachment=True)
+    return "Arquivo de registros ainda não foi gerado.", 404
+
+@app.route('/admin/reports')
+def view_reports():
+    """Exibe os relatórios de horas trabalhadas e orçadas diretamente no navegador."""
+    if 'user_id' not in session:
+        return redirect(url_for('index'))
+    
+    all_registros, all_orcamentos_db, report_data = _get_processed_report_data()
+    
+    # Prepara os dados para exibição nas tabelas HTML
+    registros_display = []
+    for reg in all_registros:
+        registros_display.append(reg) # Passa o objeto completo para o template
+
+    orcamentos_display = []
+    for orc in all_orcamentos_db:
+        orcamentos_display.append(orc) # Passa o objeto completo para o template
+
+    return render_template('reports.html', 
+                           report_data=report_data, # Dados processados para a tabela de gráficos
+                           registros_display=registros_display, # Dados brutos dos registros
+                           orcamentos_display=orcamentos_display) # Dados brutos dos orçamentos
+
 def atualizar_graficos():
     """
-    Atualiza os dados nas abas 'Registros' e 'Gráficos' do arquivo Excel
-    com base nos dados do banco de dados e gera os gráficos.
+    Gera um novo arquivo Excel 'registros.xlsx' do zero para evitar corrupção.
+    Popula as abas 'Registros', 'Orçamentos' e 'Gráficos' com dados do banco.
     """
-    criar_planilha_se_nao_existir()
-    wb = load_workbook(EXCEL_FILE)
-    ws_reg = wb["Registros"]
-    ws_chart = wb["Gráficos"]
+    all_registros, all_orcamentos_db, report_data = _get_processed_report_data()
+    
+    wb = Workbook()
 
-    # Limpa os dados existentes na aba "Registros" (exceto o cabeçalho)
-    for row_idx in range(ws_reg.max_row, 1, -1):
-        ws_reg.delete_rows(row_idx)
+    # --- Aba Registros ---
+    ws_reg = wb.active
+    ws_reg.title = "Registros"
+    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Número Projeto", "Hora Início", "Hora Fim", "Ação"]
+    ws_reg.append(headers_reg)
+    
+    # Estilo dos cabeçalhos
+    for cell in ws_reg[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Largura das colunas
+    column_widths_reg = [12, 10, 30, 20, 15, 20, 15, 15, 10]
+    for i, width in enumerate(column_widths_reg, 1):
+        ws_reg.column_dimensions[ws_reg.cell(row=1, column=i).column_letter].width = width
 
-    # Popula a aba "Registros" com dados do banco de dados
-    # Garante que os registros sejam ordenados para melhor visualização
-    all_registros = Registro.query.order_by(Registro.data.desc(), Registro.hora_inicio.desc()).all()
     for reg in all_registros:
         ws_reg.append([
             reg.data.strftime("%Y-%m-%d"),
@@ -601,97 +663,76 @@ def atualizar_graficos():
             reg.acao
         ])
 
-    # Limpa os dados existentes na aba "Gráficos" (exceto o cabeçalho)
-    for row_idx in range(ws_chart.max_row, 1, -1):
-        ws_chart.delete_rows(row_idx)
-    ws_chart._charts = [] # Limpa gráficos existentes antes de adicionar novos
+    # --- Aba Orçamentos ---
+    ws_orc = wb.create_sheet("Orçamentos")
+    headers_orc = ["Área", "Projeto", "Número Projeto", "Horas Orçadas"]
+    ws_orc.append(headers_orc)
+    
+    for cell in ws_orc[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    column_widths_orc = [30, 30, 20, 18]
+    for i, width in enumerate(column_widths_orc, 1):
+        ws_orc.column_dimensions[ws_orc.cell(row=1, column=i).column_letter].width = width
 
-    orcamentos = Orcamento.query.all()
+    for orc in all_orcamentos_db:
+        ws_orc.append([
+            orc.area_nome,
+            orc.projeto_nome,
+            orc.numero_projeto,
+            orc.horas_orcadas
+        ])
 
-    # Calcula horas trabalhadas por área/projeto/número a partir dos registros do DB
-    horas_trabalhadas = {}
-    for reg in all_registros:
-        if reg.hora_inicio and reg.hora_fim and reg.area_nome and reg.projeto_nome:
-            try:
-                # Converte objetos time para datetime para cálculo de diferença
-                dt_inicio = datetime.combine(date.min, reg.hora_inicio)
-                dt_fim = datetime.combine(date.min, reg.hora_fim)
-                horas = (dt_fim - dt_inicio).total_seconds() / 3600
-                key = f"{reg.area_nome} - {reg.projeto_nome}"
-                horas_trabalhadas[key] = horas_trabalhadas.get(key, 0) + horas
-            except Exception as e:
-                print(f"Erro ao calcular horas para registro {reg.id}: {e}")
-                pass
+    # --- Aba Gráficos ---
+    ws_chart = wb.create_sheet("Gráficos")
+    headers_chart = ["Área/Projeto", "Horas Trabalhadas", "Horas Orçadas", "Horas Restantes", "Percentual (%)"]
+    ws_chart.append(headers_chart)
+    
+    for cell in ws_chart[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    column_widths_chart = [30, 18, 18, 18, 18]
+    for i, width in enumerate(column_widths_chart, 1):
+        ws_chart.column_dimensions[ws_chart.cell(row=1, column=i).column_letter].width = width
 
-    # Popula a aba de gráficos com os dados calculados e orçados
     row = 2
-    for orc in orcamentos:
-        key = f"{orc.area_nome} - {orc.projeto_nome}"
-        trabalhadas = horas_trabalhadas.get(key, 0)
-        orcadas = orc.horas_orcadas
-        restantes = max(0, orcadas - trabalhadas) # Horas restantes não podem ser negativas
-        ws_chart.cell(row=row, column=1).value = key
-        ws_chart.cell(row=row, column=2).value = round(trabalhadas, 2)
-        ws_chart.cell(row=row, column=3).value = orcadas
-        ws_chart.cell(row=row, column=4).value = round(restantes, 2)
-        # Formata as células numéricas
+    for data_item in report_data:
+        ws_chart.cell(row=row, column=1).value = data_item["key"]
+        ws_chart.cell(row=row, column=2).value = data_item["horas_trabalhadas"]
+        ws_chart.cell(row=row, column=3).value = data_item["horas_orcadas"]
+        ws_chart.cell(row=row, column=4).value = f"=C{row}-B{row}"
+        ws_chart.cell(row=row, column=5).value = f"=IF(C{row}>0, (B{row}/C{row})*100, 0)"
+        
         ws_chart.cell(row=row, column=2).number_format = '0.00'
         ws_chart.cell(row=row, column=3).number_format = '0'
         ws_chart.cell(row=row, column=4).number_format = '0.00'
+        ws_chart.cell(row=row, column=5).number_format = '0.00"%"'
         row += 1
 
-    # Remove linhas vazias adicionais que podem ter sobrado
-    max_row = ws_chart.max_row
-    while max_row > 1 and all(cell.value is None for cell in ws_chart[max_row]):
-        ws_chart.delete_rows(max_row)
-        max_row -= 1
+    # Tabela e Gráficos
+    if row > 2:
+        tab_ref = f"A1:E{row-1}"
+        table = Table(displayName="DadosGraficos", ref=tab_ref)
+        table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True, showColumnStripes=True)
+        ws_chart.add_table(table)
 
-    # Cria uma tabela para facilitar a filtragem no Excel
-    tab_ref = f"A1:E{row-1}"
-    # Remove tabelas existentes com o mesmo nome para evitar conflitos
-    if "DadosGraficos" in ws_chart.tables:
-        del ws_chart.tables["DadosGraficos"]
-    table = Table(displayName="DadosGraficos", ref=tab_ref)
-    style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
-                           showLastColumn=False, showRowStripes=True, showColumnStripes=True)
-    table.tableStyleInfo = style
-    ws_chart.add_table(table)
-
-    if 'bar' in CHARTS:
-        bar_chart = BarChart()
-        bar_chart.title = "Horas Trabalhadas vs Orçadas"
-        bar_chart.y_axis.title = "Horas"
-        bar_chart.x_axis.title = "Área/Projeto"
-        # Dados para o gráfico de barras (Horas Trabalhadas, Horas Orçadas, Horas Restantes)
-        data = Reference(ws_chart, min_col=2, min_row=1, max_col=4, max_row=row-1)
-        # Categorias para o eixo X (Nomes das Áreas/Projetos)
         cats = Reference(ws_chart, min_col=1, min_row=2, max_row=row-1)
-        bar_chart.add_data(data, titles_from_data=True)
-        bar_chart.set_categories(cats)
-        ws_chart.add_chart(bar_chart, "F2") # Posição do gráfico na planilha
+        if 'bar' in CHARTS:
+            bar_chart = BarChart()
+            bar_chart.add_data(Reference(ws_chart, min_col=2, min_row=1, max_col=4, max_row=row-1), titles_from_data=True)
+            bar_chart.set_categories(cats)
+            ws_chart.add_chart(bar_chart, "F2")
 
-    if 'doughnut' in CHARTS:
-        doughnut_chart = DoughnutChart()
-        doughnut_chart.title = "Percentual de Conclusão"
-        # Adiciona uma coluna temporária para o percentual se ainda não existir
-        ws_chart.cell(row=1, column=5).value = "Percentual (%)"
-        for r in range(2, row):
-            trabalhadas = ws_chart.cell(row=r, column=2).value
-            orcadas = ws_chart.cell(row=r, column=3).value
-            if orcadas > 0:
-                percent = (trabalhadas / orcadas) * 100
-                ws_chart.cell(row=r, column=5).value = round(percent, 2)
-                ws_chart.cell(row=r, column=5).number_format = '0.00'
-            else:
-                ws_chart.cell(row=r, column=5).value = 0
-
-        # Dados para o gráfico de rosca (Percentual de Conclusão)
-        percent_data = Reference(ws_chart, min_col=5, min_row=2, max_row=row-1)
-        doughnut_chart.add_data(percent_data, titles_from_data=False)
-        doughnut_chart.set_categories(cats) # Categorias para as fatias do gráfico
-        ws_chart.add_chart(doughnut_chart, "F20") # Posição do gráfico na planilha
+        if 'doughnut' in CHARTS:
+            doughnut_chart = DoughnutChart()
+            doughnut_chart.add_data(Reference(ws_chart, min_col=5, min_row=2, max_row=row-1), titles_from_data=False)
+            doughnut_chart.set_categories(cats)
+            ws_chart.add_chart(doughnut_chart, "F20")
 
     wb.save(EXCEL_FILE)
+    print(f"Arquivo Excel '{EXCEL_FILE}' gerado com sucesso.")
 
 # --- Inicialização da Aplicação ---
 
@@ -699,6 +740,8 @@ if __name__ == '__main__':
     # Garante que todas as tabelas sejam criadas no banco de dados
     with app.app_context():
         db.create_all()
+        # Garante que o arquivo Excel e as abas existam
+        criar_planilha_se_nao_existir()
         # Cria um usuário administrador padrão se não houver nenhum.
         # Isso é útil para o primeiro acesso ao painel de administração.
         if User.query.filter_by(username='admin').first() is None:

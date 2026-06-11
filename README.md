@@ -24,7 +24,7 @@ O projeto utiliza uma arquitetura moderna para garantir que os dados não sejam 
 * **Banco de Dados:** Supabase (PostgreSQL) para armazenamento seguro dos registros.
 * **Banco de Dados:** PostgreSQL (gerenciado via SQLAlchemy)
 * **Hospedagem:** Magalu Cloud (ou qualquer provedor de VM Linux)
-* **Planilhas:** Integração com `openpyxl` para geração de relatórios Excel.
+* **Planilhas:** Geração de relatórios Excel com `openpyxl`.
 
 ## 🧠 Funcionalidades
 
