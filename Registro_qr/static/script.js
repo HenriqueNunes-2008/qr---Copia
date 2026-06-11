@@ -39,9 +39,6 @@ function iniciarLeitor() {
                             ${PROJETOS.map(proj => `<option value="${proj}">${proj}</option>`).join('')}
                         </select>
 
-                        <label for="numeroProjeto">Número do Projeto:</label>
-                        <input type="text" id="numeroProjeto" name="numeroProjeto" required>
-
                         <label for="horaInicio">Hora de Início:</label>
                         <input type="time" id="horaInicio" name="horaInicio" required>
 
@@ -54,7 +51,7 @@ function iniciarLeitor() {
 
                 const form = document.getElementById("registroForm");
                 const button = form.querySelector("button");
-                const inputs = [form.horaInicio, form.horaFim, form.area, form.projeto, form.numeroProjeto];
+                const inputs = [form.horaInicio, form.horaFim, form.area, form.projeto];
 
                 function validarFormulario() {
                     const valido = inputs.every(input => input.value.trim() !== "");
@@ -93,7 +90,7 @@ async function enviarFormulario(e) {
         horaFim: document.getElementById("horaFim").value,
         area: document.getElementById("area").value,
         projeto: document.getElementById("projeto").value,
-        numeroProjeto: document.getElementById("numeroProjeto").value
+        numeroProjeto: ""
     };
 
     try {
@@ -131,6 +128,30 @@ document.getElementById('cancelBtn').addEventListener('click', () => {
     document.getElementById('loginModal').style.display = 'none';
 });
 
+document.getElementById('registerBtn').addEventListener('click', () => {
+    document.getElementById('registerModal').style.display = 'flex';
+});
+
+document.getElementById('publicRegisterForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('regUser').value;
+    const email = document.getElementById('regEmail').value;
+    const password = document.getElementById('regPass').value;
+
+    const response = await fetch('/register_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, email })
+    });
+    const result = await response.json();
+    if (result.status === 'ok') {
+        alert('Solicitação enviada com sucesso! Aguarde a validação do administrador.');
+        document.getElementById('registerModal').style.display = 'none';
+    } else {
+        alert(result.message);
+    }
+});
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value;
@@ -144,6 +165,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (result.status === 'ok') {
         window.location.href = '/admin';
     } else {
-        alert('Credenciais inválidas');
+        alert(result.message || 'Credenciais inválidas');
     }
 });

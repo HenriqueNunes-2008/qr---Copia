@@ -3,20 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin - Gerenciar Configurações</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #333;
-            color: white;
+            font-family: 'Montserrat', sans-serif;
+            background-color: #145392;
+            color: #FFFFFF;
             margin: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: auto;
-            background: #444;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            background: #FFFFFF;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            color: #1A345B;
         }
         h1 {
             text-align: center;
@@ -26,7 +28,8 @@
             margin-bottom: 30px;
         }
         .section h2 {
-            border-bottom: 1px solid #777;
+            border-bottom: 2px solid #4CBDE0;
+            font-weight: 700;
             padding-bottom: 5px;
             color: white;
         }
@@ -35,61 +38,86 @@
             flex-direction: column;
             gap: 10px;
         }
-        input, select, button {
-            padding: 8px;
+        input, select {
+            padding: 12px;
             font-size: 16px;
-            background-color: #555;
-            color: white;
-            border: 1px solid #777;
+            border: 1px solid #657788;
+            border-radius: 8px;
         }
         button {
-            background-color: #4CAF50;
-            color: white;
+            padding: 12px;
+            background-color: #3C1276;
+            color: #FFFFFF;
+            font-weight: 700;
             border: none;
             cursor: pointer;
+            border-radius: 8px;
         }
         button:hover {
-            background-color: #45a049;
+            background-color: #4CBDE0;
+            color: #000000;
         }
         .list {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
+            margin-top: 15px;
         }
         .item {
-            background: #666;
+            background: #f0f4f8;
             padding: 5px 10px;
-            border-radius: 4px;
+            border-radius: 20px;
             display: flex;
             align-items: center;
             gap: 10px;
-            color: white;
+            color: #1A345B;
+            border: 1px solid #4CBDE0;
+            font-size: 0.9rem;
         }
         .delete-btn {
-            background: red;
-            color: white;
+            background: #ff6b6b;
+            color: #FFFFFF;
             border: none;
-            padding: 2px 5px;
+            padding: 2px 6px;
+            border-radius: 50%;
             cursor: pointer;
+            font-weight: bold;
+            font-size: 0.7rem;
         }
         a {
-            color: #4CAF50;
+            color: #3C1276;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .logo {
+            max-width: 150px;
+            transform: scale(2.50);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Administração</h1>
+        <div class="logo-container">
+            <img src="/static/LogoFlexcolor2.png" alt="Logo Fleximedical" class="logo">
+        </div>
+        
+        <h1 style="color: #145392; margin-bottom: 40px;">Painel Administrativo</h1>
+
+        <div style="text-align: right; margin-bottom: 20px;">
+            <a href="/logout" style="color: #ff6b6b;">Sair do Sistema</a>
+        </div>
 
         <div class="section">
             <h2>Gerenciar Áreas</h2>
             <form id="addAreaForm">
-                <input type="text" id="newArea" placeholder="Nova Área" required>
-                <button type="submit">Adicionar Área</button>
-            </form>
-            <form id="deleteAreaForm" style="margin-top: 10px;">
-                <input type="text" id="deleteArea" placeholder="Nome da Área a Excluir" required>
-                <button type="submit">Excluir Área</button>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newArea" placeholder="Nova Área" required style="flex: 1;">
+                    <button type="submit" style="width: 200px;">Adicionar Área</button>
+                </div>
             </form>
             <div id="areasList" class="list"></div>
         </div>
@@ -97,12 +125,10 @@
         <div class="section">
             <h2>Gerenciar Projetos</h2>
             <form id="addProjetoForm">
-                <input type="text" id="newProjeto" placeholder="Novo Projeto" required>
-                <button type="submit">Adicionar Projeto</button>
-            </form>
-            <form id="deleteProjetoForm" style="margin-top: 10px;">
-                <input type="text" id="deleteProjeto" placeholder="Nome do Projeto a Excluir" required>
-                <button type="submit">Excluir Projeto</button>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="newProjeto" placeholder="Novo Projeto (Nome e Número)" required style="flex: 1;">
+                    <button type="submit" style="width: 200px;">Adicionar Projeto</button>
+                </div>
             </form>
             <div id="projetosList" class="list"></div>
         </div>
@@ -125,7 +151,6 @@
                 <select id="orcamentoProjeto" required>
                     <option value="">Selecione Projeto</option>
                 </select>
-                <input type="text" id="orcamentoNumero" placeholder="Número do Projeto" required>
                 <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
                 <button type="submit">Definir Orçamento</button>
             </form>
@@ -162,13 +187,6 @@
                     </tbody>
                 </table>
             </div>
-
-            <h3 style="margin-top: 20px;">Cadastrar Novo Usuário</h3>
-            <form id="registerUserForm">
-                <input type="text" id="regUsername" placeholder="Nome de Usuário" required>
-                <input type="email" id="regEmail" placeholder="E-mail" required>
-                <input type="password" id="regPassword" placeholder="Senha" required>
-                <button type="submit">Solicitar Cadastro</button>
             </form>
         </div>
 
@@ -176,51 +194,24 @@
             <h2>Selecionar Gráficos</h2>
             <form id="selectChartsForm">
                 <label><input type="checkbox" id="chartBar" value="bar"> Gráfico de Barras</label><br>
-                <label><input type="checkbox" id="chartDoughnut" value="doughnut"> Gráfico de Rosca</label><br>
+                <label><input type="checkbox" id="chartDoughnut" value="doughnut"> Gráfico de Rosca (Percentual)</label><br>
                 <button type="submit">Salvar Seleção</button>
             </form>
+            
+            <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border: 1px dashed #657788; border-radius: 8px;">
+                <h3 style="margin-top: 0; color: #145392;">Integração Google Sheets</h3>
+                <p style="font-size: 0.9rem; color: #657788;">Espaço reservado para configuração da planilha em nuvem.</p>
+            </div>
         </div>
 
         <div class="section">
             <h2>Gerar QR Codes</h2>
+            <p>Acesse a página de visualização para imprimir os códigos dos funcionários:</p>
             <a href="/qrcodes">Ver QR Codes dos Funcionários</a>
         </div>
     </div>
 
     <script>
-        async function updateUserStatus(userId, status) {
-            const response = await fetch('/admin/update_user_status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId, status: status })
-            });
-            const result = await response.json();
-            if (result.status === 'ok') {
-                location.reload();
-            } else {
-                alert(result.message);
-            }
-        }
-
-        document.getElementById('registerUserForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('regUsername').value;
-            const email = document.getElementById('regEmail').value;
-            const password = document.getElementById('regPassword').value;
-            const response = await fetch('/register_user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, email })
-            });
-            const result = await response.json();
-            if (result.status === 'ok') {
-                alert('Cadastro solicitado com sucesso! Aguarde a aprovação.');
-                location.reload();
-            } else {
-                alert(result.message);
-            }
-        });
-
         async function loadAreas() {
             const response = await fetch('/static/config.js');
             const script = await response.text();
@@ -256,6 +247,7 @@
         }
 
         async function deleteArea(area) {
+            if (!confirm(`Tem certeza que deseja excluir a área "${area}"?`)) return;
             const response = await fetch('/admin/delete_area', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -270,6 +262,7 @@
         }
 
         async function deleteProjeto(projeto) {
+            if (!confirm(`Tem certeza que deseja excluir o projeto "${projeto}"?`)) return;
             const response = await fetch('/admin/delete_projeto', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -317,40 +310,6 @@
             }
         });
 
-        document.getElementById('deleteAreaForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const area = document.getElementById('deleteArea').value;
-            const response = await fetch('/admin/delete_area', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ area })
-            });
-            const result = await response.json();
-            if (result.status === 'ok') {
-                document.getElementById('deleteArea').value = '';
-                loadAreas();
-            } else {
-                alert(result.message);
-            }
-        });
-
-        document.getElementById('deleteProjetoForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const projeto = document.getElementById('deleteProjeto').value;
-            const response = await fetch('/admin/delete_projeto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projeto })
-            });
-            const result = await response.json();
-            if (result.status === 'ok') {
-                document.getElementById('deleteProjeto').value = '';
-                loadProjetos();
-            } else {
-                alert(result.message);
-            }
-        });
-
         document.getElementById('addEmployeeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('employeeId').value;
@@ -390,48 +349,20 @@
             });
         }
 
-        async function loadCharts() {
-            const response = await fetch('/static/config.js');
-            const script = await response.text();
-            eval(script);
-            document.getElementById('chartBar').checked = CHARTS.includes('bar');
-            document.getElementById('chartDoughnut').checked = CHARTS.includes('doughnut');
-        }
-
-        document.getElementById('selectChartsForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const selectedCharts = [];
-            if (document.getElementById('chartBar').checked) selectedCharts.push('bar');
-            if (document.getElementById('chartDoughnut').checked) selectedCharts.push('doughnut');
-            const response = await fetch('/admin/select_charts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ charts: selectedCharts })
-            });
-            const result = await response.json();
-            if (result.status === 'ok') {
-                alert('Seleção de gráficos salva com sucesso!');
-            } else {
-                alert(result.message);
-            }
-        });
-
         document.getElementById('addOrcamentoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const area = document.getElementById('orcamentoArea').value;
             const projeto = document.getElementById('orcamentoProjeto').value;
-            const numeroProjeto = document.getElementById('orcamentoNumero').value;
             const horasOrcadas = parseFloat(document.getElementById('orcamentoHoras').value);
             const response = await fetch('/admin/add_orcamento', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ area, projeto, numeroProjeto, horasOrcadas })
+                body: JSON.stringify({ area, projeto, numeroProjeto: "", horasOrcadas })
             });
             const result = await response.json();
             if (result.status === 'ok') {
                 document.getElementById('orcamentoArea').value = '';
                 document.getElementById('orcamentoProjeto').value = '';
-                document.getElementById('orcamentoNumero').value = '';
                 document.getElementById('orcamentoHoras').value = '';
                 alert('Orçamento definido com sucesso!');
             } else {
@@ -443,7 +374,6 @@
             loadAreas();
             loadProjetos();
             populateSelects();
-            loadCharts();
         };
     </script>
 </body>
