@@ -214,7 +214,7 @@ def verificar():
         funcionario_id=idf,
         funcionario_nome=nome,
         hora_fim=None # Assumimos que hora_fim é NULL para registros abertos
-    ).first()
+    ).order_by(Registro.id.desc()).first()
 
     if registro_aberto:
         return jsonify({
@@ -271,7 +271,7 @@ def registrar():
         db.session.commit() # Salva o novo funcionário (se criado) e o registro
 
         # Após salvar no DB, atualiza o arquivo Excel e os gráficos
-        criar_planilha_se_nao_existir()
+        # criar_planilha_se_nao_existir() - chamando apenas atualização de gráficos
         atualizar_graficos()
 
         return jsonify({"status": "ok", "acao": "registro"})
@@ -327,7 +327,7 @@ def login():
             session['username'] = user.username
             return jsonify({"status": "ok"})
         else:
-            return jsonify({"status": "error", "message": "Sua conta ainda não foi ativada ou está inativa. Contate o administrador."})
+            return jsonify({"status": "error", "message": "FLASH: Conta aguardando validação ou inativa. Contate o administrador."})
     return jsonify({"status": "error", "message": "Credenciais inválidas"})
 
 @app.route('/logout')
@@ -450,10 +450,9 @@ def add_orcamento():
     data = request.get_json()
     area = data.get('area')
     projeto = data.get('projeto')
-    numeroProjeto = data.get('numeroProjeto')
+    numeroProjeto = data.get('numeroProjeto', '')
     horasOrcadas = data.get('horasOrcadas')
-
-    if not all([area, projeto, numeroProjeto, horasOrcadas is not None]):
+    if not all([area, projeto, horasOrcadas is not None]):
         return jsonify({"status": "error", "message": "Dados de orçamento inválidos"})
 
     try:
@@ -577,6 +576,7 @@ def atualizar_graficos():
     Atualiza os dados nas abas 'Registros' e 'Gráficos' do arquivo Excel
     com base nos dados do banco de dados e gera os gráficos.
     """
+    criar_planilha_se_nao_existir()
     wb = load_workbook(EXCEL_FILE)
     ws_reg = wb["Registros"]
     ws_chart = wb["Gráficos"]
@@ -611,13 +611,13 @@ def atualizar_graficos():
     # Calcula horas trabalhadas por área/projeto/número a partir dos registros do DB
     horas_trabalhadas = {}
     for reg in all_registros:
-        if reg.hora_inicio and reg.hora_fim and reg.area_nome and reg.projeto_nome and reg.numero_projeto:
+        if reg.hora_inicio and reg.hora_fim and reg.area_nome and reg.projeto_nome:
             try:
                 # Converte objetos time para datetime para cálculo de diferença
                 dt_inicio = datetime.combine(date.min, reg.hora_inicio)
                 dt_fim = datetime.combine(date.min, reg.hora_fim)
                 horas = (dt_fim - dt_inicio).total_seconds() / 3600
-                key = f"{reg.area_nome} - {reg.projeto_nome} - {reg.numero_projeto}"
+                key = f"{reg.area_nome} - {reg.projeto_nome}"
                 horas_trabalhadas[key] = horas_trabalhadas.get(key, 0) + horas
             except Exception as e:
                 print(f"Erro ao calcular horas para registro {reg.id}: {e}")
@@ -626,7 +626,7 @@ def atualizar_graficos():
     # Popula a aba de gráficos com os dados calculados e orçados
     row = 2
     for orc in orcamentos:
-        key = f"{orc.area_nome} - {orc.projeto_nome} - {orc.numero_projeto}"
+        key = f"{orc.area_nome} - {orc.projeto_nome}"
         trabalhadas = horas_trabalhadas.get(key, 0)
         orcadas = orc.horas_orcadas
         restantes = max(0, orcadas - trabalhadas) # Horas restantes não podem ser negativas
