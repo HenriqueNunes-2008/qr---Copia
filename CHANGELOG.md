@@ -1,5 +1,16 @@
 # Changelog do Projeto QR
 
+## Versão 1.2.0 - Reversão para Excel Local (2026-06-11)
+
+Esta versão reverte a integração com o Google Sheets para utilizar arquivos Excel locais, conforme solicitado.
+
+### Principais Mudanças:
+
+-   **Integração de Planilhas:**
+    -   Removida a dependência da biblioteca `gspread` e da API do Google Sheets.
+    -   Restaurada a funcionalidade de geração e atualização de arquivos Excel (`registros.xlsx`) usando a biblioteca `openpyxl`.
+    -   As abas "Registros", "Gráficos" e "Orçamentos" são agora gerenciadas no arquivo Excel local.
+
 ## Versão 1.1.0 - Migração para PostgreSQL e Gestão de Usuários (2026-05-21)
 
 Esta versão representa uma refatoração significativa da arquitetura de dados e infraestrutura, movendo a aplicação de um ambiente PaaS (Supabase/Render) para uma solução mais flexível baseada em PostgreSQL e preparada para hospedagem em VM (ex: Magalu Cloud).

@@ -74,7 +74,7 @@
             border-radius: 15px;
             box-shadow: 0 12px 25px rgba(0, 0, 0, 0.3);
             background-color: #FFFFFF;
-            padding: 12px;
+            padding: 12px 12px 12px 12px;
             margin-bottom: 2rem;
             border: 4px solid #4CBDE0;
             overflow: hidden;
@@ -113,7 +113,8 @@
             color: #145392;
         }
 
-        select, input[type="text"] {
+        select, input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
             padding: 12px 16px;
             font-size: 1rem;
             border-radius: 8px;
@@ -125,7 +126,7 @@
             transition: border-color 0.3s ease;
         }
 
-        select:focus, input[type="text"]:focus {
+        select:focus, input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
             border-color: #4CBDE0;
         }
 
@@ -180,7 +181,7 @@
         <img src="/static/LogoFlexcolor2.png" alt="Logo Fleximedical" class="logo-topbar">
         <div class="topbar-buttons">
             <button id="registerBtn" style="background-color: #4CBDE0; color: #000000;">Cadastre-se</button>
-            <button id="adminBtn" style="background-color: #3C1276; color: #FFFFFF;">Login Admin</button>
+            <button id="adminBtn" style="background-color: #3C1276; color: #FFFFFF;">Login</button>
         </div>
     </div>
 
@@ -193,12 +194,12 @@
         <!-- Modal de Login -->
         <div id="loginModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000;">
             <div style="background: #FFFFFF; padding: 30px; border-radius: 15px; border: 2px solid #3C1276; width: 350px;">
-                <h2 style="color: #145392; margin-bottom: 20px; font-weight: 700;">Login Admin</h2>
+                <h2 style="color: #145392; margin-bottom: 20px; font-weight: 700;">Login</h2>
                 <form id="loginForm">
                     <label for="username">Usuário:</label>
-                    <input type="text" id="username" required style="width: 100%; margin-bottom: 15px;">
+                    <input type="text" id="username" required style="margin-bottom: 15px; display: block;">
                     <label for="password">Senha:</label>
-                    <input type="password" id="password" required style="width: 100%; margin-bottom: 20px; padding: 12px; border-radius: 8px; border: 1.8px solid #657788;">
+                    <input type="password" id="password" required style="margin-bottom: 15px; display: block;">
                     <button type="submit" style="width: 100%;">Entrar</button>
                     <button type="button" id="cancelBtn" style="width: 100%; margin-top: 10px; background: #657788;">Cancelar</button>
                 </form>
@@ -211,11 +212,11 @@
                 <h2 style="color: #145392; margin-bottom: 20px; font-weight: 700;">Solicitar Acesso</h2>
                 <form id="publicRegisterForm">
                     <label>Usuário:</label>
-                    <input type="text" id="regUser" required style="width: 100%; margin-bottom: 15px;">
+                    <input type="text" id="regUser" required style="margin-bottom: 15px; display: block;">
                     <label>E-mail:</label>
-                    <input type="email" id="regEmail" required style="width: 100%; margin-bottom: 15px;">
+                    <input type="email" id="regEmail" required style="margin-bottom: 15px; display: block;">
                     <label>Senha:</label>
-                    <input type="password" id="regPass" required style="width: 100%; margin-bottom: 20px; padding: 12px; border-radius: 8px; border: 1.8px solid #657788;">
+                    <input type="password" id="regPass" required style="margin-bottom: 20px; display: block;">
                     <button type="submit" style="width: 100%; background-color: #4CBDE0; color: #000000;">Enviar Solicitação</button>
                     <button type="button" onclick="document.getElementById('registerModal').style.display='none'" style="width: 100%; margin-top: 10px; background: #657788;">Cancelar</button>
                 </form>

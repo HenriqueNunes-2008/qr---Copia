@@ -108,7 +108,9 @@
         <h1 style="color: #145392; margin-bottom: 40px;">Painel Administrativo</h1>
 
         <div style="text-align: right; margin-bottom: 20px;">
-            <a href="/logout" style="color: #ff6b6b;">Sair do Sistema</a>
+            <a href="/admin/reports" style="background: #007bff; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; margin-right: 10px;">Visualizar Relatórios</a>
+            <a href="/admin/download_excel" style="background: #28a745; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; margin-right: 10px;">Baixar Planilha</a>
+            <a href="/logout" style="color: #ff6b6b; font-weight: bold;">Sair</a>
         </div>
 
         <div class="section">
@@ -153,40 +155,6 @@
                 </select>
                 <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
                 <button type="submit">Definir Orçamento</button>
-            </form>
-        </div>
-
-        <div class="section">
-            <h2>Gerenciar Usuários (Acessos)</h2>
-            <p>Contas pendentes precisam de aprovação para realizar login.</p>
-            <div id="usersList" style="margin-top: 10px; overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; background: #555; text-align: left;">
-                    <thead>
-                        <tr style="background: #666;">
-                            <th style="padding: 10px; border: 1px solid #777;">Usuário</th>
-                            <th style="padding: 10px; border: 1px solid #777;">E-mail</th>
-                            <th style="padding: 10px; border: 1px solid #777;">Status</th>
-                            <th style="padding: 10px; border: 1px solid #777;">Ação</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users %}
-                        <tr>
-                            <td style="padding: 10px; border: 1px solid #777;">{{ user.username }}</td>
-                            <td style="padding: 10px; border: 1px solid #777;">{{ user.email }}</td>
-                            <td style="padding: 10px; border: 1px solid #777;">{{ user.status }}</td>
-                            <td style="padding: 10px; border: 1px solid #777;">
-                                {% if user.status == 'pending' %}
-                                <button onclick="updateUserStatus({{ user.id }}, 'active')" style="background: green; padding: 5px; width: auto;">Aprovar</button>
-                                {% elif user.username != 'admin' %}
-                                <button onclick="updateUserStatus({{ user.id }}, 'inactive')" style="background: #d9534f; padding: 5px; width: auto;">Inativar</button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
             </form>
         </div>
 
