@@ -46,6 +46,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     status = db.Column(db.String(20), default='pending', nullable=False) # 'pending', 'active', 'inactive'
+    acesso = db.Column(db.String(20), default='relator', nullable=False) # 'administrativo', 'relator'
 
     def __repr__(self):
         return f'<User {self.username} - {self.status}>'
@@ -91,14 +92,13 @@ class Orcamento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     area_nome = db.Column(db.String(100), nullable=False)
     projeto_nome = db.Column(db.String(100), nullable=False)
-    numero_projeto = db.Column(db.String(50), nullable=False)
     horas_orcadas = db.Column(db.Float, nullable=False)
 
-    # Garante que a combinação de area, projeto e numero_projeto seja única
-    __table_args__ = (db.UniqueConstraint('area_nome', 'projeto_nome', 'numero_projeto', name='_area_projeto_numero_uc'),)
+    # Garante que a combinação de area e projeto seja única
+    __table_args__ = (db.UniqueConstraint('area_nome', 'projeto_nome', name='_area_projeto_uc'),)
 
     def __repr__(self):
-        return f'<Orcamento {self.area_nome}/{self.projeto_nome}/{self.numero_projeto} - {self.horas_orcadas}h>'
+        return f'<Orcamento {self.area_nome}/{self.projeto_nome} - {self.horas_orcadas}h>'
 
 class Registro(db.Model):
     """
@@ -111,13 +111,36 @@ class Registro(db.Model):
     funcionario_nome = db.Column(db.String(100), nullable=False)
     area_nome = db.Column(db.String(100), nullable=False)
     projeto_nome = db.Column(db.String(100), nullable=False)
-    numero_projeto = db.Column(db.String(50), nullable=False)
     hora_inicio = db.Column(db.Time, nullable=False)
-    hora_fim = db.Column(db.Time, nullable=False)
+    hora_fim = db.Column(db.Time, nullable=True)
     acao = db.Column(db.String(50), nullable=False) # e.g., 'registro'
+    status = db.Column(db.String(20), default='em_andamento')
+    total_horas = db.Column(db.Float, nullable=True)
 
     # Relacionamento com Funcionario
     funcionario = db.relationship('Funcionario', backref=db.backref('registros', lazy=True))
+
+    @property
+    def duracao_formatada(self):
+        """Calcula a duração total entre hora_inicio e hora_fim formatada (ex: 4h ou 4h 15min)."""
+        if not self.hora_inicio or not self.hora_fim:
+            return "-"
+        
+        dt_inicio = datetime.combine(date.min, self.hora_inicio)
+        dt_fim = datetime.combine(date.min, self.hora_fim)
+        
+        # Lógica para registros que passam da meia-noite
+        if dt_fim < dt_inicio:
+            dt_fim += timedelta(days=1)
+            
+        delta = dt_fim - dt_inicio
+        total_seconds = int(delta.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        
+        if minutes == 0:
+            return f"{hours}h"
+        return f"{hours}h {minutes}min"
 
     def __repr__(self):
         return f'<Registro {self.data} - {self.funcionario_nome} ({self.hora_inicio}-{self.hora_fim})>'
@@ -149,19 +172,41 @@ def load_initial_data_from_db():
             print("Erro ao ler config.json. Usando configuração de gráficos padrão.")
             pass
 
-def _get_processed_report_data():
+def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, data_inicio=None, data_fim=None):
     """
     Calcula e retorna os dados processados para relatórios (horas trabalhadas, orçadas, etc.).
+    Suporta filtros opcionais.
     Retorna:
         tuple: (all_registros, all_orcamentos_db, report_data)
             - all_registros: Lista de todos os objetos Registro.
             - all_orcamentos_db: Lista de todos os objetos Orcamento.
             - report_data: Lista de dicionários com dados processados para a aba 'Gráficos'.
     """
-    all_registros = Registro.query.order_by(Registro.data.desc(), Registro.hora_inicio.desc()).all()
-    all_orcamentos_db = Orcamento.query.order_by(Orcamento.area_nome, Orcamento.projeto_nome, Orcamento.numero_projeto).all()
+    query_reg = Registro.query
+    query_orc = Orcamento.query
 
-    # Calcula horas trabalhadas por área/projeto/número a partir dos registros do DB
+    if areas:
+        query_reg = query_reg.filter(Registro.area_nome.in_(areas))
+        query_orc = query_orc.filter(Orcamento.area_nome.in_(areas))
+    if projetos:
+        query_reg = query_reg.filter(Registro.projeto_nome.in_(projetos))
+        query_orc = query_orc.filter(Orcamento.projeto_nome.in_(projetos))
+    if funcionarios:
+        query_reg = query_reg.filter(Registro.funcionario_id.in_(funcionarios))
+    
+    if data_inicio:
+        if isinstance(data_inicio, str):
+            data_inicio = datetime.strptime(data_inicio, '%Y-%m-%d').date()
+        query_reg = query_reg.filter(Registro.data >= data_inicio)
+    if data_fim:
+        if isinstance(data_fim, str):
+            data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
+        query_reg = query_reg.filter(Registro.data <= data_fim)
+
+    all_registros = query_reg.order_by(Registro.data.desc(), Registro.hora_inicio.desc()).all()
+    all_orcamentos_db = query_orc.order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
+
+    # Calcula horas trabalhadas por área/projeto a partir dos registros do DB
     horas_trabalhadas = {}
     for reg in all_registros:
         if reg.hora_inicio and reg.hora_fim and reg.area_nome and reg.projeto_nome:
@@ -191,7 +236,6 @@ def _get_processed_report_data():
             "key": key,
             "area_nome": orc.area_nome,
             "projeto_nome": orc.projeto_nome,
-            "numero_projeto": orc.numero_projeto,
             "horas_trabalhadas": round(trabalhadas, 2),
             "horas_orcadas": orcadas,
             "horas_restantes": round(restantes, 2),
@@ -218,82 +262,92 @@ def index():
 @app.route('/verificar', methods=['POST'])
 def verificar():
     """
-    Verifica se há um registro de entrada "aberto" para um funcionário.
-    Agora consulta o banco de dados.
+    Verifica se há um registro de atividade "em andamento" para um funcionário.
     """
     data_req = request.get_json()
-    hoje_str = data_req.get("data")
     idf = data_req.get("id")
     nome = data_req.get("nome")
 
-    hoje_date = datetime.strptime(hoje_str, "%Y-%m-%d").date()
-
-    # Busca por um registro onde a hora_fim ainda não foi preenchida (registro aberto)
+    # Busca o último registro aberto do funcionário (status em_andamento)
     registro_aberto = Registro.query.filter_by(
-        data=hoje_date,
         funcionario_id=idf,
-        funcionario_nome=nome,
-        hora_fim=None # Assumimos que hora_fim é NULL para registros abertos
+        status='em_andamento'
     ).order_by(Registro.id.desc()).first()
 
     if registro_aberto:
+        # Calcula tempo decorrido para exibição
+        inicio_dt = datetime.combine(registro_aberto.data, registro_aberto.hora_inicio)
+        decorrido = datetime.now() - inicio_dt
+        segundos = int(decorrido.total_seconds())
+        horas = segundos // 3600
+        minutos = (segundos % 3600) // 60
+        tempo_str = f"{horas} horas e {minutos} minutos" if horas > 0 else f"{minutos} minutos"
+
         return jsonify({
             "aberto": True,
             "area": registro_aberto.area_nome,
             "projeto": registro_aberto.projeto_nome,
-            "numeroProjeto": registro_aberto.numero_projeto
+            "inicio": registro_aberto.hora_inicio.strftime("%H:%M"),
+            "data": registro_aberto.data.strftime("%d/%m/%Y"),
+            "tempo_decorrido": tempo_str
         })
     else:
-        return jsonify({"aberto": False, "area": "", "projeto": "", "numeroProjeto": ""})
+        return jsonify({"aberto": False, "area": "", "projeto": ""})
 
 @app.route('/registrar', methods=['POST'])
 def registrar():
     """
-    Registra a entrada/saída de um funcionário no banco de dados.
-    Substitui a lógica de Supabase.
+    Inicia ou Finaliza uma atividade automaticamente via QR Code.
     """
     data_payload = request.get_json()
-    hoje_str = data_payload.get("data")
     idf = data_payload.get("id")
     nome = data_payload.get("nome")
-    hora_inicio_str = data_payload.get("horaInicio")
-    hora_fim_str = data_payload.get("horaFim")
-    area = data_payload.get("area")
-    projeto = data_payload.get("projeto")
-    numero = data_payload.get("numeroProjeto")
+    tipo_acao = data_payload.get("tipoAcao") # 'iniciar' ou 'finalizar'
 
-    hoje_date = datetime.strptime(hoje_str, "%Y-%m-%d").date()
-    hora_inicio_time = datetime.strptime(hora_inicio_str, "%H:%M").time()
-    hora_fim_time = datetime.strptime(hora_fim_str, "%H:%M").time()
+    agora = datetime.now()
 
     try:
-        # Verifica se o funcionário já existe no DB, se não, o cria.
-        # Isso garante a integridade referencial para 'funcionario_id'.
         funcionario = Funcionario.query.get(idf)
         if not funcionario:
             funcionario = Funcionario(id=idf, nome=nome)
             db.session.add(funcionario)
-            # Não é necessário commit aqui, será feito junto com o registro.
 
-        # Cria um novo registro de horas
-        novo_registro = Registro(
-            data=hoje_date,
-            funcionario_id=idf,
-            funcionario_nome=nome,
-            area_nome=area,
-            projeto_nome=projeto,
-            numero_projeto=numero,
-            hora_inicio=hora_inicio_time,
-            hora_fim=hora_fim_time,
-            acao="registro"
-        )
-        db.session.add(novo_registro)
-        db.session.commit() # Salva o novo funcionário (se criado) e o registro
+        if tipo_acao == 'iniciar':
+            area = data_payload.get("area")
+            projeto = data_payload.get("projeto")
+            
+            novo_registro = Registro(
+                data=agora.date(),
+                funcionario_id=idf,
+                funcionario_nome=nome,
+                area_nome=area,
+                projeto_nome=projeto,
+                hora_inicio=agora.time(),
+                acao="registro",
+                status="em_andamento"
+            )
+            db.session.add(novo_registro)
+            msg = "Atividade iniciada com sucesso."
+        
+        elif tipo_acao == 'finalizar':
+            registro = Registro.query.filter_by(funcionario_id=idf, status='em_andamento').first()
+            if not registro:
+                return jsonify({"status": "error", "message": "Nenhum registro aberto encontrado."})
+            
+            registro.hora_fim = agora.time()
+            registro.status = 'finalizado'
+            
+            # Calcula total de horas para o banco
+            inicio_dt = datetime.combine(registro.data, registro.hora_inicio)
+            diff = agora - inicio_dt
+            registro.total_horas = diff.total_seconds() / 3600
+            msg = "Atividade finalizada com sucesso."
+
+        db.session.commit()
 
         # Após salvar no DB, atualiza o arquivo Excel
         atualizar_graficos()
-
-        return jsonify({"status": "ok", "acao": "registro"})
+        return jsonify({"status": "ok", "message": msg})
     except Exception as e:
         db.session.rollback() # Desfaz a transação em caso de erro
         print(f"Erro ao registrar no banco de dados: {e}")
@@ -344,6 +398,7 @@ def login():
         if user.status == 'active':
             session['user_id'] = user.id
             session['username'] = user.username
+            session['acesso'] = user.acesso
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "FLASH: Conta aguardando validação ou inativa. Contate o administrador."})
@@ -354,6 +409,7 @@ def logout():
     """Desloga o usuário da sessão."""
     session.pop('user_id', None)
     session.pop('username', None)
+    session.pop('acesso', None)
     return redirect(url_for('index'))
 
 @app.route('/admin')
@@ -366,27 +422,78 @@ def admin():
         # Redireciona para a página inicial se não estiver logado
         return redirect(url_for('index'))
     
+    if session.get('acesso') != 'administrativo':
+        # Se for relator, redireciona para a página de relatórios
+        return redirect(url_for('view_reports'))
+
+    # Processamento de Filtros
+    f_areas = request.args.getlist('f_areas')
+    f_projetos = request.args.getlist('f_projetos')
+    f_funcionarios = request.args.getlist('f_funcionarios')
+    f_date_preset = request.args.get('f_date_preset', 'all')
+    f_inicio = request.args.get('f_inicio')
+    f_fim = request.args.get('f_fim')
+
+    # Lógica de presets de data
+    if f_date_preset != 'custom' and f_date_preset != 'all':
+        hoje = date.today()
+        if f_date_preset == 'today':
+            f_inicio = f_fim = hoje.strftime('%Y-%m-%d')
+        elif f_date_preset == 'yesterday':
+            ontem = hoje - timedelta(days=1)
+            f_inicio = f_fim = ontem.strftime('%Y-%m-%d')
+        elif f_date_preset == '7days':
+            f_inicio = (hoje - timedelta(days=6)).strftime('%Y-%m-%d')
+            f_fim = hoje.strftime('%Y-%m-%d')
+        elif f_date_preset == '30days':
+            f_inicio = (hoje - timedelta(days=29)).strftime('%Y-%m-%d')
+            f_fim = hoje.strftime('%Y-%m-%d')
+        elif f_date_preset == 'month':
+            f_inicio = hoje.replace(day=1).strftime('%Y-%m-%d')
+            f_fim = hoje.strftime('%Y-%m-%d')
+    
+    # Determina qual view abrir por padrão
+    default_view = request.args.get('view', 'home')
+
+    all_registros, all_orcamentos_db, report_data = _get_processed_report_data(
+        areas=f_areas,
+        projetos=f_projetos,
+        funcionarios=f_funcionarios,
+        data_inicio=f_inicio if f_inicio else None,
+        data_fim=f_fim if f_fim else None
+    )
+
+    # Calcula o total de horas dos registros filtrados
+    total_horas_filtradas = sum(reg.total_horas for reg in all_registros if reg.total_horas)
+
     # Carrega todos os dados necessários para exibir no painel de administração
     areas = Area.query.order_by(Area.nome).all()
     projetos = Projeto.query.order_by(Projeto.nome).all()
     employees = Funcionario.query.order_by(Funcionario.nome).all()
-    orcamentos = Orcamento.query.order_by(Orcamento.area_nome, Orcamento.projeto_nome, Orcamento.numero_projeto).all()
     users = User.query.order_by(User.username).all() # Para gestão de usuários
 
     return render_template('admin.html',
                            areas=areas,
                            projetos=projetos,
                            employees=employees,
-                           orcamentos=orcamentos,
+                           orcamentos=all_orcamentos_db,
                            users=users,
-                           current_charts=CHARTS)
+                           registros=all_registros,
+                           total_horas_filtradas=total_horas_filtradas,
+                           f_areas=f_areas,
+                           f_projetos=f_projetos,
+                           f_funcionarios=f_funcionarios,
+                           f_date_preset=f_date_preset,
+                           f_inicio=f_inicio,
+                           f_fim=f_fim,
+                           default_view=default_view)
 
 # --- Rotas de Administração (CRUD para o Banco de Dados) ---
 
 @app.route('/admin/add_area', methods=['POST'])
 def add_area():
     """Adiciona uma nova área ao banco de dados."""
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     area_nome = data.get('area')
     if area_nome:
@@ -403,7 +510,7 @@ def add_area():
 @app.route('/admin/delete_area', methods=['POST'])
 def delete_area():
     """Exclui uma área do banco de dados."""
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     area_nome = data.get('area')
     area = Area.query.filter_by(nome=area_nome).first()
@@ -417,7 +524,7 @@ def delete_area():
 @app.route('/admin/add_projeto', methods=['POST'])
 def add_projeto():
     """Adiciona um novo projeto ao banco de dados."""
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     projeto_nome = data.get('projeto')
     if projeto_nome:
@@ -434,7 +541,7 @@ def add_projeto():
 @app.route('/admin/delete_projeto', methods=['POST'])
 def delete_projeto():
     """Exclui um projeto do banco de dados."""
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     projeto_nome = data.get('projeto')
     projeto = Projeto.query.filter_by(nome=projeto_nome).first()
@@ -448,7 +555,7 @@ def delete_projeto():
 @app.route('/admin/add_employee', methods=['POST'])
 def add_employee():
     """Adiciona um novo funcionário ao banco de dados."""
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     idf = data.get('id')
     nome = data.get('nome')
@@ -465,11 +572,10 @@ def add_employee():
 @app.route('/admin/add_orcamento', methods=['POST'])
 def add_orcamento():
     """Adiciona ou atualiza um orçamento de horas no banco de dados."""
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     area = data.get('area')
     projeto = data.get('projeto')
-    numeroProjeto = data.get('numeroProjeto', '')
     horasOrcadas = data.get('horasOrcadas')
     if not all([area, projeto, horasOrcadas is not None]):
         return jsonify({"status": "error", "message": "Dados de orçamento inválidos"})
@@ -482,8 +588,7 @@ def add_orcamento():
     # Tenta encontrar um orçamento existente para a combinação de área/projeto/número
     orcamento = Orcamento.query.filter_by(
         area_nome=area,
-        projeto_nome=projeto,
-        numero_projeto=numeroProjeto
+        projeto_nome=projeto
     ).first()
 
     if orcamento:
@@ -494,7 +599,6 @@ def add_orcamento():
         orcamento = Orcamento(
             area_nome=area,
             projeto_nome=projeto,
-            numero_projeto=numeroProjeto,
             horas_orcadas=horasOrcadas
         )
         db.session.add(orcamento)
@@ -508,6 +612,7 @@ def select_charts():
     Permite ao administrador selecionar quais tipos de gráficos serão gerados.
     A configuração é salva em config.json.
     """
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     charts = data.get('charts', [])
     global CHARTS
@@ -532,12 +637,11 @@ def api_orcamentos():
     Retorna a lista de orçamentos cadastrados no banco de dados.
     Substitui a leitura de orcamentos.json.
     """
-    orcamentos = Orcamento.query.order_by(Orcamento.area_nome, Orcamento.projeto_nome, Orcamento.numero_projeto).all()
+    orcamentos = Orcamento.query.order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
     return jsonify([
         {
             "area": o.area_nome,
             "projeto": o.projeto_nome,
-            "numeroProjeto": o.numero_projeto,
             "horasOrcadas": o.horas_orcadas
         } for o in orcamentos
     ])
@@ -578,7 +682,7 @@ def update_user_status():
     """
     Permite que um administrador altere o status de um usuário (pending, active, inactive).
     """
-    if 'user_id' not in session: return jsonify({"status": "error", "message": "Não autorizado"})
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
     user_id = data.get('user_id')
     new_status = data.get('status')
@@ -609,21 +713,29 @@ def view_reports():
     if 'user_id' not in session:
         return redirect(url_for('index'))
     
-    all_registros, all_orcamentos_db, report_data = _get_processed_report_data()
-    
-    # Prepara os dados para exibição nas tabelas HTML
-    registros_display = []
-    for reg in all_registros:
-        registros_display.append(reg) # Passa o objeto completo para o template
+    if session.get('acesso') != 'relator':
+        # Se for administrativo, redireciona para o painel principal
+        return redirect(url_for('admin'))
 
-    orcamentos_display = []
-    for orc in all_orcamentos_db:
-        orcamentos_display.append(orc) # Passa o objeto completo para o template
+    # Filtros do Relator
+    f_areas = request.args.getlist('f_areas')
+    f_projetos = request.args.getlist('f_projetos')
+
+    all_registros, all_orcamentos_db, report_data = _get_processed_report_data(
+        areas=f_areas,
+        projetos=f_projetos
+    )
+    
+    # Carrega opções para os filtros
+    areas = Area.query.order_by(Area.nome).all()
+    projetos = Projeto.query.order_by(Projeto.nome).all()
 
     return render_template('reports.html', 
                            report_data=report_data, # Dados processados para a tabela de gráficos
-                           registros_display=registros_display, # Dados brutos dos registros
-                           orcamentos_display=orcamentos_display) # Dados brutos dos orçamentos
+                           areas=areas,
+                           projetos=projetos,
+                           f_areas=f_areas,
+                           f_projetos=f_projetos)
 
 def atualizar_graficos():
     """
@@ -637,7 +749,7 @@ def atualizar_graficos():
     # --- Aba Registros ---
     ws_reg = wb.active
     ws_reg.title = "Registros"
-    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Número Projeto", "Hora Início", "Hora Fim", "Ação"]
+    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Hora Início", "Hora Fim", "Ação"]
     ws_reg.append(headers_reg)
     
     # Estilo dos cabeçalhos
@@ -646,7 +758,7 @@ def atualizar_graficos():
         cell.alignment = Alignment(horizontal='center')
     
     # Largura das colunas
-    column_widths_reg = [12, 10, 30, 20, 15, 20, 15, 15, 10]
+    column_widths_reg = [12, 10, 30, 20, 15, 15, 15, 10]
     for i, width in enumerate(column_widths_reg, 1):
         ws_reg.column_dimensions[ws_reg.cell(row=1, column=i).column_letter].width = width
 
@@ -657,22 +769,21 @@ def atualizar_graficos():
             reg.funcionario_nome,
             reg.area_nome,
             reg.projeto_nome,
-            reg.numero_projeto,
             reg.hora_inicio.strftime("%H:%M"),
-            reg.hora_fim.strftime("%H:%M"),
+            reg.hora_fim.strftime("%H:%M") if reg.hora_fim else "Em aberto",
             reg.acao
         ])
 
     # --- Aba Orçamentos ---
     ws_orc = wb.create_sheet("Orçamentos")
-    headers_orc = ["Área", "Projeto", "Número Projeto", "Horas Orçadas"]
+    headers_orc = ["Área", "Projeto", "Horas Orçadas"]
     ws_orc.append(headers_orc)
     
     for cell in ws_orc[1]:
         cell.font = Font(bold=True)
         cell.alignment = Alignment(horizontal='center')
     
-    column_widths_orc = [30, 30, 20, 18]
+    column_widths_orc = [30, 30, 18]
     for i, width in enumerate(column_widths_orc, 1):
         ws_orc.column_dimensions[ws_orc.cell(row=1, column=i).column_letter].width = width
 
@@ -680,7 +791,6 @@ def atualizar_graficos():
         ws_orc.append([
             orc.area_nome,
             orc.projeto_nome,
-            orc.numero_projeto,
             orc.horas_orcadas
         ])
 
@@ -746,7 +856,7 @@ if __name__ == '__main__':
         # Isso é útil para o primeiro acesso ao painel de administração.
         if User.query.filter_by(username='admin').first() is None:
             hashed_password = bcrypt.generate_password_hash('admin').decode('utf-8')
-            admin_user = User(username='admin', password_hash=hashed_password, email='admin@fleximedical.com.br', status='active')
+            admin_user = User(username='admin', password_hash=hashed_password, email='admin@fleximedical.com.br', status='active', acesso='administrativo')
             db.session.add(admin_user)
             db.session.commit()
             print("Usuário 'admin' criado com senha 'admin' e status 'active'.")

@@ -17,58 +17,76 @@ function iniciarLeitor() {
             try {
                 const obj = JSON.parse(decodedText);
                 if (!obj.id || !obj.nome) throw "QR inválido";
-
                 currentUser = obj;
 
-                // No need to verify open entries, always allow new registration
+                // Verifica status no servidor
+                const checkResp = await fetch("/verificar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: obj.id, nome: obj.nome })
+                });
+                const status = await checkResp.json();
 
-                formContainer.innerHTML = `
-                    <p>Olá, ${obj.nome}. Registre seu horário de trabalho.</p>
-                    <form id="registroForm" novalidate>
-                        <input type="hidden" id="funcionarioId" name="id" value="${obj.id}">
+                let form; // Declara a variável form aqui para ser acessível em ambos os blocos
+                if (status.aberto) {
+                    // TELA DE FINALIZAÇÃO
+                    formContainer.innerHTML = `
+                        <div style="text-align: left;">
+                            <p style="color: #3C1276; font-size: 1.2rem;">Atividade em Andamento</p>
+                            <p><strong>Funcionário:</strong> ${obj.nome}</p>
+                            <p><strong>Área:</strong> ${status.area}</p>
+                            <p><strong>Projeto:</strong> ${status.projeto}</p>
+                            <p><strong>Início:</strong> ${status.inicio} (${status.data})</p>
+                            <p style="background: #e6edf3; padding: 10px; border-radius: 8px;">
+                                ⏱️ <strong>Tempo decorrido:</strong><br>${status.tempo_decorrido}
+                            </p>
+                            <form id="registroForm">
+                                <input type="hidden" id="tipoAcao" value="finalizar">
+                                <button type="submit" style="width: 100%; background-color: #ff6b6b;">Finalizar Atividade</button>
+                            </form>
+                        </div>
+                    `;
+                    form = document.getElementById("registroForm");
+                } else {
+                    // TELA DE INÍCIO
+                    formContainer.innerHTML = `
+                        <p>Olá, ${obj.nome}. Selecione o projeto para iniciar.</p>
+                        <form id="registroForm" novalidate>
+                            <input type="hidden" id="tipoAcao" value="iniciar">
+                            <label for="area">Área:</label>
+                            <select id="area" name="area" required>
+                                <option value="" disabled selected>Selecionar Área</option>
+                                ${AREAS.map(area => `<option value="${area}">${area}</option>`).join('')}
+                            </select>
 
-                        <label for="area">Área:</label>
-                        <select id="area" name="area" required>
-                            <option value="" disabled selected>Selecione uma área</option>
-                            ${AREAS.map(area => `<option value="${area}">${area}</option>`).join('')}
-                        </select>
+                            <label for="projeto">Projeto:</label>
+                            <select id="projeto" name="projeto" required>
+                                <option value="" disabled selected>Selecionar Projeto</option>
+                                ${PROJETOS.map(proj => `<option value="${proj}">${proj}</option>`).join('')}
+                            </select>
+                            <button type="submit" disabled>Iniciar Atividade</button>
+                        </form>
+                    `;
+                    form = document.getElementById("registroForm");
+                    const areaSelect = document.getElementById("area");
+                    const projetoSelect = document.getElementById("projeto");
+                    const submitButton = form.querySelector("button[type='submit']");
 
-                        <label for="projeto">Projeto:</label>
-                        <select id="projeto" name="projeto" required>
-                            <option value="" disabled selected>Selecione um projeto</option>
-                            ${PROJETOS.map(proj => `<option value="${proj}">${proj}</option>`).join('')}
-                        </select>
+                    function validarFormulario() {
+                        const valido = areaSelect.value !== "" && projetoSelect.value !== "";
+                        submitButton.disabled = !valido;
+                    }
 
-                        <label for="horaInicio">Hora de Início:</label>
-                        <input type="time" id="horaInicio" name="horaInicio" required>
-
-                        <label for="horaFim">Hora de Fim:</label>
-                        <input type="time" id="horaFim" name="horaFim" required>
-
-                        <button type="submit" disabled>Registrar</button>
-                    </form>
-                `;
-
-                const form = document.getElementById("registroForm");
-                const button = form.querySelector("button");
-                const inputs = [form.horaInicio, form.horaFim, form.area, form.projeto];
-
-                function validarFormulario() {
-                    const valido = inputs.every(input => input.value.trim() !== "");
-                    button.disabled = !valido;
+                    areaSelect.addEventListener("change", validarFormulario);
+                    projetoSelect.addEventListener("change", validarFormulario);
+                    validarFormulario(); // Validação inicial
                 }
 
-                inputs.forEach(input => {
-                    input.addEventListener("input", validarFormulario);
-                });
-
-                validarFormulario(); // inicializar estado botão
-
+                // Adiciona o event listener para o submit do formulário, independentemente da tela
                 form.addEventListener("submit", enviarFormulario);
 
                 formContainer.style.display = "block";
                 html5QrCode.stop();
-
             } catch (e) {
                 console.error("QR inválido:", e);
             }
@@ -82,15 +100,13 @@ function iniciarLeitor() {
 async function enviarFormulario(e) {
     e.preventDefault();
 
+    const tipoAcao = document.getElementById("tipoAcao").value;
     const payload = {
-        data: dataHoje(),
         id: currentUser.id,
         nome: currentUser.nome,
-        horaInicio: document.getElementById("horaInicio").value,
-        horaFim: document.getElementById("horaFim").value,
-        area: document.getElementById("area").value,
-        projeto: document.getElementById("projeto").value,
-        numeroProjeto: ""
+        tipoAcao: tipoAcao,
+        area: document.getElementById("area") ? document.getElementById("area").value : null,
+        projeto: document.getElementById("projeto") ? document.getElementById("projeto").value : null
     };
 
     try {
@@ -103,7 +119,7 @@ async function enviarFormulario(e) {
         const j = await resp.json();
 
         if (j.status === "ok") {
-            alert(`Registro de ${j.acao} salvo com sucesso!`);
+            alert(j.message);
         } else {
             alert(j.message || "Erro ao registrar.");
         }
