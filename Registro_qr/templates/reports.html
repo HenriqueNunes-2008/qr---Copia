@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Relatórios - Fleximedical</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Montserrat', sans-serif;
@@ -79,6 +80,60 @@
             max-width: 150px;
             transform: scale(2.50);
         }
+        .chart-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+        }
+        .donut-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-around;
+        }
+        .donut-item {
+            width: 250px;
+            text-align: center;
+        }
+        /* Estilos dos Filtros do Relator */
+        .relator-filters {
+            display: flex;
+            gap: 20px;
+            background: #f0f4f8;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #cbd5e1;
+            align-items: flex-end;
+        }
+        .filter-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .filter-col label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #145392;
+        }
+        .filter-scroll {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            max-height: 100px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .filter-scroll div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            padding: 2px 0;
+            color: #1e293b;
+        }
     </style>
 </head>
 <body>
@@ -88,25 +143,59 @@
         </div>
         <h1>Relatórios de Horas</h1>
 
-        <a href="/admin" class="back-button">Voltar para o Painel Admin</a>
+        <div style="text-align: right;"><a href="/logout" style="color: #ff6b6b; font-weight: bold; text-decoration: none;">Sair</a></div>
 
-        <h2>Resumo de Horas (Gráficos)</h2>
+        <!-- Área de Filtros do Relator -->
+        <form action="/admin/reports" method="GET">
+            <div class="relator-filters">
+                <div class="filter-col">
+                    <label>Filtrar por Áreas</label>
+                    <div class="filter-scroll">
+                        {% for a in areas %}
+                        <div>
+                            <input type="checkbox" name="f_areas" value="{{ a.nome }}" {% if a.nome in f_areas %}checked{% endif %}>
+                            <span>{{ a.nome }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filter-col">
+                    <label>Filtrar por Projetos</label>
+                    <div class="filter-scroll">
+                        {% for p in projetos %}
+                        <div>
+                            <input type="checkbox" name="f_projetos" value="{{ p.nome }}" {% if p.nome in f_projetos %}checked{% endif %}>
+                            <span>{{ p.nome }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="window.location.href='/admin/reports'" style="padding: 10px 15px; border-radius: 8px; border: none; background: #64748b; color: white; cursor: pointer; font-weight: 700;">Limpar</button>
+                    <button type="submit" style="padding: 10px 15px; border-radius: 8px; border: none; background: #3C1276; color: white; cursor: pointer; font-weight: 700;">Aplicar Filtros</button>
+                </div>
+            </div>
+        </form>
+
+        <h2>Seção 1: Resumo de Horas</h2>
         <table>
             <thead>
                 <tr>
-                    <th>Área/Projeto</th>
-                    <th>Horas Trabalhadas</th>
+                    <th>Área</th>
+                    <th>Projeto</th>
                     <th>Horas Orçadas</th>
-                    <th>Horas Restantes</th>
-                    <th>Percentual (%)</th>
+                    <th>Horas Trabalhadas</th>
+                    <th>Saldo de Horas</th>
+                    <th>Percentual Executado</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in report_data %}
                 <tr>
-                    <td>{{ item.key }}</td>
+                    <td>{{ item.area_nome }}</td>
+                    <td>{{ item.projeto_nome }}</td>
+                    <td>{{ "%.1f" | format(item.horas_orcadas) }}</td>
                     <td>{{ "%.2f" | format(item.horas_trabalhadas) }}</td>
-                    <td>{{ "%.0f" | format(item.horas_orcadas) }}</td>
                     <td>{{ "%.2f" | format(item.horas_restantes) }}</td>
                     <td>{{ "%.2f" | format(item.percentual) }}%</td>
                 </tr>
@@ -114,57 +203,80 @@
             </tbody>
         </table>
 
-        <h2>Orçamentos Cadastrados</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Área</th>
-                    <th>Projeto</th>
-                    <th>Número Projeto</th>
-                    <th>Horas Orçadas</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for orc in orcamentos_display %}
-                <tr>
-                    <td>{{ orc.area_nome }}</td>
-                    <td>{{ orc.projeto_nome }}</td>
-                    <td>{{ orc.numero_projeto }}</td>
-                    <td>{{ "%.0f" | format(orc.horas_orcadas) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="chart-container">
+            <h2>Seção 2: Comparativo de Horas Orçadas vs Trabalhadas</h2>
+            <canvas id="barChart" style="max-height: 400px;"></canvas>
+        </div>
 
-        <h2>Registros de Horas</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Funcionário</th>
-                    <th>Área</th>
-                    <th>Projeto</th>
-                    <th>Hora Início</th>
-                    <th>Hora Fim</th>
-                    <th>Ação</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for reg in registros_display %}
-                <tr>
-                    <td>{{ reg.data.strftime('%Y-%m-%d') }}</td>
-                    <td>{{ reg.funcionario_nome }}</td>
-                    <td>{{ reg.area_nome }}</td>
-                    <td>{{ reg.projeto_nome }}</td>
-                    <td>{{ reg.hora_inicio.strftime('%H:%M') }}</td>
-                    <td>{{ reg.hora_fim.strftime('%H:%M') }}</td>
-                    <td>{{ reg.acao }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <a href="/admin" class="back-button">Voltar para o Painel Admin</a>
+        <div class="chart-container">
+            <h2>Seção 3: Percentual de Desenvolvimento dos Projetos</h2>
+            <div id="donutContainer" class="donut-grid"></div>
+        </div>
     </div>
+
+    <script>
+        const reportData = {{ report_data | tojson | safe }} || [];
+
+        // Configuração do Gráfico de Barras (Seção 2)
+        const barCtx = document.getElementById('barChart').getContext('2d');
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: reportData.map(d => d.key),
+                datasets: [
+                    {
+                        label: 'Horas Orçadas',
+                        data: reportData.map(d => d.horas_orcadas),
+                        backgroundColor: '#3C1276'
+                    },
+                    {
+                        label: 'Horas Trabalhadas',
+                        data: reportData.map(d => d.horas_trabalhadas),
+                        backgroundColor: '#4CBDE0'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Horas' } }
+                }
+            }
+        });
+
+        // Configuração dos Gráficos de Rosca (Seção 3)
+        const donutContainer = document.getElementById('donutContainer');
+        reportData.forEach((d, index) => {
+            const div = document.createElement('div');
+            div.className = 'donut-item';
+            div.innerHTML = `
+                <h4 style="font-size: 0.8rem; color: #145392;">${d.key}</h4>
+                <canvas id="donut-${index}"></canvas>
+            `;
+            donutContainer.appendChild(div);
+
+            const percExec = Math.min(d.percentual, 100);
+            const percRest = Math.max(0, 100 - d.percentual);
+
+            new Chart(document.getElementById(`donut-${index}`).getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Concluído', 'Restante'],
+                    datasets: [{
+                        data: [percExec, percRest],
+                        backgroundColor: ['#4CBDE0', '#e6edf3'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (ctx) => ` ${ctx.raw.toFixed(1)}%` } }
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>

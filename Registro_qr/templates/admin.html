@@ -9,20 +9,61 @@
             font-family: 'Montserrat', sans-serif;
             background-color: #145392;
             color: #FFFFFF;
-            margin: 20px;
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: #FFFFFF;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+        .sidebar h3 {
+            color: #145392;
+            font-size: 0.85rem;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            font-weight: 700;
+            padding-left: 10px;
+        }
+        .sidebar a {
+            padding: 14px 18px;
+            background: #f8fafc;
+            border-radius: 10px;
+            color: #145392;
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #e2e8f0;
+        }
+        .sidebar a:hover {
+            background: #3C1276;
+            color: #FFFFFF;
+            transform: translateX(5px);
+        }
+        .main-content {
+            margin-left: 280px;
+            width: calc(100% - 280px);
+            padding: 40px 20px;
         }
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: auto;
             background: #FFFFFF;
             padding: 40px;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             color: #1A345B;
-        }
-        h1 {
-            text-align: center;
-            color: white;
         }
         .section {
             margin-bottom: 30px;
@@ -31,7 +72,8 @@
             border-bottom: 2px solid #4CBDE0;
             font-weight: 700;
             padding-bottom: 5px;
-            color: white;
+            color: #145392;
+            margin-bottom: 20px;
         }
         form {
             display: flex;
@@ -97,89 +139,349 @@
             max-width: 150px;
             transform: scale(2.50);
         }
+        /* Estilos para os Filtros */
+        .filter-bar {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            color: #1e293b;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .multi-select-box {
+            max-height: 120px;
+            overflow-y: auto;
+            border: 1px solid #cbd5e1;
+            background: white;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .multi-select-box div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            padding: 2px 0;
+        }
+        .filter-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        /* Dropdowns modernos para filtros */
+        .dropdown-header {
+            cursor: pointer;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            min-width: 180px;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 250px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            padding: 12px 16px;
+            z-index: 1001;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+        .filter-group {
+            position: relative;
+        }
+        .multi-select-box {
+            max-height: 200px !important;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="sidebar">
+        <h3>Menu Administrativo</h3>
+        <a href="javascript:void(0)" onclick="showView('registros')">Registro de Horas</a>
+        <a href="javascript:void(0)" onclick="showView('orcamentos')">Horas Orçadas</a>
+    </div>
+
+    <div class="main-content">
+        <div class="container">
         <div class="logo-container">
             <img src="/static/LogoFlexcolor2.png" alt="Logo Fleximedical" class="logo">
         </div>
         
-        <h1 style="color: #145392; margin-bottom: 40px;">Painel Administrativo</h1>
+        <h1 style="color: #145392; margin-bottom: 40px; text-align: center;">Painel Administrativo</h1>
 
         <div style="text-align: right; margin-bottom: 20px;">
-            <a href="/admin/reports" style="background: #007bff; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; margin-right: 10px;">Visualizar Relatórios</a>
             <a href="/admin/download_excel" style="background: #28a745; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; margin-right: 10px;">Baixar Planilha</a>
             <a href="/logout" style="color: #ff6b6b; font-weight: bold;">Sair</a>
         </div>
 
-        <div class="section">
-            <h2>Gerenciar Áreas</h2>
-            <form id="addAreaForm">
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="newArea" placeholder="Nova Área" required style="flex: 1;">
-                    <button type="submit" style="width: 200px;">Adicionar Área</button>
-                </div>
-            </form>
-            <div id="areasList" class="list"></div>
-        </div>
-
-        <div class="section">
-            <h2>Gerenciar Projetos</h2>
-            <form id="addProjetoForm">
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="newProjeto" placeholder="Novo Projeto (Nome e Número)" required style="flex: 1;">
-                    <button type="submit" style="width: 200px;">Adicionar Projeto</button>
-                </div>
-            </form>
-            <div id="projetosList" class="list"></div>
-        </div>
-
-        <div class="section">
-            <h2>Adicionar Funcionário</h2>
-            <form id="addEmployeeForm">
-                <input type="text" id="employeeId" placeholder="ID" required>
-                <input type="text" id="employeeName" placeholder="Nome" required>
-                <button type="submit">Adicionar Funcionário</button>
-            </form>
-        </div>
-
-        <div class="section">
-            <h2>Definir Orçamento de Horas</h2>
-            <form id="addOrcamentoForm">
-                <select id="orcamentoArea" required>
-                    <option value="">Selecione Área</option>
-                </select>
-                <select id="orcamentoProjeto" required>
-                    <option value="">Selecione Projeto</option>
-                </select>
-                <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
-                <button type="submit">Definir Orçamento</button>
-            </form>
-        </div>
-
-        <div class="section">
-            <h2>Selecionar Gráficos</h2>
-            <form id="selectChartsForm">
-                <label><input type="checkbox" id="chartBar" value="bar"> Gráfico de Barras</label><br>
-                <label><input type="checkbox" id="chartDoughnut" value="doughnut"> Gráfico de Rosca (Percentual)</label><br>
-                <button type="submit">Salvar Seleção</button>
-            </form>
-            
-            <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border: 1px dashed #657788; border-radius: 8px;">
-                <h3 style="margin-top: 0; color: #145392;">Integração Google Sheets</h3>
-                <p style="font-size: 0.9rem; color: #657788;">Espaço reservado para configuração da planilha em nuvem.</p>
+        <div id="main-settings">
+            <div class="section">
+                <h2>Cadastrar Área</h2>
+                <form id="addAreaForm">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="newArea" placeholder="Nova Área" required style="flex: 1;">
+                        <button type="submit" style="width: 200px;">Adicionar Área</button>
+                    </div>
+                </form>
+                <div id="areasList" class="list"></div>
             </div>
+
+            <div class="section">
+                <h2>Cadastrar Projeto</h2>
+                <form id="addProjetoForm">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="newProjeto" placeholder="Novo Projeto (Nome e Número)" required style="flex: 1;">
+                        <button type="submit" style="width: 200px;">Adicionar Projeto</button>
+                    </div>
+                </form>
+                <div id="projetosList" class="list"></div>
+            </div>
+
+            <div class="section">
+                <h2>Cadastrar Orçamento</h2>
+                <form id="addOrcamentoForm">
+                    <select id="orcamentoArea" required>
+                        <option value="">Selecione Área</option>
+                    </select>
+                    <select id="orcamentoProjeto" required>
+                        <option value="">Selecione Projeto</option>
+                    </select>
+                    <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
+                    <button type="submit">Definir Orçamento</button>
+                </form>
+            </div>
+
+            <div class="section">
+                <h2>Visualizar QR Codes</h2>
+                <p>Acesse a página de visualização para imprimir os códigos dos funcionários:</p>
+                <a href="/qrcodes">Ver QR Codes dos Funcionários</a>
+            </div>
+        </div> <!-- End main-settings -->
+
+        <div id="view-registros" style="display: none;">
+            <div class="section">
+                <h2>Registro de Horas</h2>
+                
+                <!-- Área de Filtros Avançados -->
+                <form action="/admin" method="GET" id="filterForm">
+                    <input type="hidden" name="view" value="registros">
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label>Período</label>
+                            <div class="dropdown-header" onclick="toggleDropdown('dateOptions')">
+                                <span id="dateLabel">▼ Data</span>
+                            </div>
+                            <div class="dropdown-content" id="dateOptions">
+                                <select name="f_date_preset" id="f_date_preset" onchange="handleDatePreset(this.value)" style="width: 100%; margin-bottom: 10px;">
+                                    <option value="all" {% if f_date_preset == 'all' %}selected{% endif %}>Todo o Período</option>
+                                    <option value="today" {% if f_date_preset == 'today' %}selected{% endif %}>Hoje</option>
+                                    <option value="yesterday" {% if f_date_preset == 'yesterday' %}selected{% endif %}>Ontem</option>
+                                    <option value="7days" {% if f_date_preset == '7days' %}selected{% endif %}>Últimos 7 dias</option>
+                                    <option value="30days" {% if f_date_preset == '30days' %}selected{% endif %}>Últimos 30 dias</option>
+                                    <option value="month" {% if f_date_preset == 'month' %}selected{% endif %}>Este mês</option>
+                                    <option value="custom" {% if f_date_preset == 'custom' %}selected{% endif %}>Personalizado</option>
+                                </select>
+                                <div id="customDateFields" style="display: {% if f_date_preset == 'custom' %}block{% else %}none{% endif %};">
+                                    <input type="date" name="f_inicio" value="{{ f_inicio }}" style="width: 100%; margin-bottom: 5px;">
+                                    <input type="date" name="f_fim" value="{{ f_fim }}" style="width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label>Funcionários</label>
+                            <div class="dropdown-header" onclick="toggleDropdown('empOptions')">
+                                <span id="empLabel">▼ Funcionário {% if f_funcionarios|length > 0 %}({{ f_funcionarios|length }}){% endif %}</span>
+                            </div>
+                            <div class="dropdown-content multi-select-box" id="empOptions">
+                                {% for emp in employees %}
+                                <div>
+                                    <input type="checkbox" name="f_funcionarios" value="{{ emp.id }}" onchange="updateFilterLabel('empOptions', 'empLabel', 'Funcionário')"
+                                           {% if emp.id in f_funcionarios %}checked{% endif %}>
+                                    <span>{{ emp.nome }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label>Áreas</label>
+                            <div class="dropdown-header" onclick="toggleDropdown('areaOptions')">
+                                <span id="areaLabel">▼ Área {% if f_areas|length > 0 %}({{ f_areas|length }}){% endif %}</span>
+                            </div>
+                            <div class="dropdown-content multi-select-box" id="areaOptions">
+                                {% for area in areas %}
+                                <div>
+                                    <input type="checkbox" name="f_areas" value="{{ area.nome }}" onchange="updateFilterLabel('areaOptions', 'areaLabel', 'Área')"
+                                           {% if area.nome in f_areas %}checked{% endif %}>
+                                    <span>{{ area.nome }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label>Projetos</label>
+                            <div class="dropdown-header" onclick="toggleDropdown('projOptions')">
+                                <span id="projLabel">▼ Projeto {% if f_projetos|length > 0 %}({{ f_projetos|length }}){% endif %}</span>
+                            </div>
+                            <div class="dropdown-content multi-select-box" id="projOptions">
+                                {% for proj in projetos %}
+                                <div>
+                                    <input type="checkbox" name="f_projetos" value="{{ proj.nome }}" onchange="updateFilterLabel('projOptions', 'projLabel', 'Projeto')"
+                                           {% if proj.nome in f_projetos %}checked{% endif %}>
+                                    <span>{{ proj.nome }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="filter-actions">
+                            <button type="button" onclick="window.location.href='/admin?view=registros'" style="background: #64748b;">Limpar Filtros</button>
+                            <button type="submit" style="background: #3C1276;">Aplicar Filtros</button>
+                        </div>
+                    </div>
+                </form>
+
+                <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; min-width: 800px;">
+                    <thead style="background: #3C1276; color: white;">
+                        <tr>
+                            <th style="padding: 8px;">Data</th>
+                            <th style="padding: 8px;">Funcionário</th>
+                            <th style="padding: 8px;">Área</th>
+                            <th style="padding: 8px;">Projeto</th>
+                            <th style="padding: 8px;">Hora de Início</th>
+                            <th style="padding: 8px;">Hora Final</th>
+                            <th style="padding: 8px;">Hora Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reg in registros %}
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.data.strftime('%d/%m/%Y') }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.funcionario_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.area_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.projeto_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.hora_inicio.strftime('%H:%M') }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else 'Em aberto' }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>{{ reg.duracao_formatada }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot style="background: #f1f5f9; font-weight: bold;">
+                        <tr>
+                            <td colspan="6" style="padding: 12px; text-align: right;">TOTAL DAS HORAS FILTRADAS:</td>
+                            <td style="padding: 12px; color: #3C1276; font-size: 1rem;">
+                                {{ "%.1f" | format(total_horas_filtradas) }}h
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+                </div>
+            </div>
+            <a href="javascript:void(0)" onclick="showView('home')" style="color: #657788; font-weight: 700; text-decoration: none;">← Voltar para Configurações Administrativas</a>
         </div>
 
-        <div class="section">
-            <h2>Gerar QR Codes</h2>
-            <p>Acesse a página de visualização para imprimir os códigos dos funcionários:</p>
-            <a href="/qrcodes">Ver QR Codes dos Funcionários</a>
+        <div id="view-orcamentos" style="display: none;">
+            <div class="section">
+                <h2>Horas Orçadas</h2>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem;">
+                    <thead style="background: #3C1276; color: white;">
+                        <tr>
+                            <th style="padding: 8px;">Área</th>
+                            <th style="padding: 8px;">Projeto</th>
+                            <th style="padding: 8px;">Horas Orçadas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for orc in orcamentos %}
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ orc.area_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ orc.projeto_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ "%.1f" | format(orc.horas_orcadas) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <a href="javascript:void(0)" onclick="showView('home')" style="color: #657788; font-weight: 700; text-decoration: none;">← Voltar para Configurações Administrativas</a>
         </div>
-    </div>
+
+        </div> <!-- End container -->
+    </div> <!-- End main-content -->
 
     <script>
+        function toggleDropdown(id) {
+            const el = document.getElementById(id);
+            const isVisible = el.style.display === 'block';
+            document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+            el.style.display = isVisible ? 'none' : 'block';
+        }
+
+        window.addEventListener('click', function(e) {
+            if (!e.target.closest('.filter-group')) {
+                document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+            }
+        });
+
+        function handleDatePreset(val) {
+            const customFields = document.getElementById('customDateFields');
+            customFields.style.display = (val === 'custom') ? 'block' : 'none';
+            if (val !== 'custom') {
+                document.getElementById('filterForm').submit();
+            }
+        }
+
+        function updateFilterLabel(containerId, labelId, baseText) {
+            const container = document.getElementById(containerId);
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            const checked = Array.from(checkboxes).filter(c => c.checked);
+            const label = document.getElementById(labelId);
+            
+            if (checked.length === 0) {
+                label.innerText = '▼ ' + baseText;
+            } else if (checked.length === checkboxes.length) {
+                label.innerText = '▼ ' + baseText + ' (Todas)';
+            } else {
+                label.innerText = '▼ ' + baseText + ' (' + checked.length + ')';
+            }
+        }
+
+        function showView(viewId) {
+            document.getElementById('main-settings').style.display = 'none';
+            document.getElementById('view-registros').style.display = 'none';
+            document.getElementById('view-orcamentos').style.display = 'none';
+
+            if (viewId === 'home') {
+                document.getElementById('main-settings').style.display = 'block';
+            } else if (viewId === 'registros') {
+                document.getElementById('view-registros').style.display = 'block';
+            } else if (viewId === 'orcamentos') {
+                document.getElementById('view-orcamentos').style.display = 'block';
+            }
+        }
+
         async function loadAreas() {
             const response = await fetch('/static/config.js');
             const script = await response.text();
@@ -339,6 +641,7 @@
         });
 
         window.onload = () => {
+            showView('{{ default_view }}');
             loadAreas();
             loadProjetos();
             populateSelects();
