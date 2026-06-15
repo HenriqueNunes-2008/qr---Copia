@@ -1,0 +1,1 @@
+web: gunicorn Registro_qr.app:app
