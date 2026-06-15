@@ -216,6 +216,68 @@
         .multi-select-box {
             max-height: 200px !important;
         }
+
+        /* Estilos das Flash Messages (Toasts) */
+        #flash-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .flash-message {
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .flash-success { background-color: #28a745; }
+        .flash-error { background-color: #ff6b6b; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Modal de Edição */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            padding: 30px;
+            border-radius: 15px;
+            width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            color: #1a345b;
+        }
+        .modal-content h2 { margin-top: 0; color: #145392; border-bottom: 2px solid #4CBDE0; padding-bottom: 10px; }
+        .modal-field { margin-bottom: 15px; }
+        .modal-field label { display: block; font-weight: 700; margin-bottom: 5px; font-size: 0.9rem; }
+        .modal-field input, .modal-field textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .modal-field input[readonly] { background-color: #f1f5f9; cursor: not-allowed; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-cancel { background: #64748b; color: white; }
+        .edit-icon-btn {
+            background: none;
+            border: none;
+            color: #145392;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
@@ -224,6 +286,8 @@
         <a href="javascript:void(0)" onclick="showView('registros')">Registro de Horas</a>
         <a href="javascript:void(0)" onclick="showView('orcamentos')">Horas Orçadas</a>
     </div>
+
+    <div id="flash-container"></div>
 
     <div class="main-content">
         <div class="container">
@@ -243,22 +307,57 @@
                 <h2>Cadastrar Área</h2>
                 <form id="addAreaForm">
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="newArea" placeholder="Nova Área" required style="flex: 1;">
-                        <button type="submit" style="width: 200px;">Adicionar Área</button>
+                        <input type="text" id="newArea" placeholder="Nome da Área" required style="flex: 1;">
+                        <button type="submit" style="width: 200px;">Salvar</button>
                     </div>
                 </form>
-                <div id="areasList" class="list"></div>
+                <h3 style="margin-top: 20px; color: #145392; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">Áreas Cadastradas</h3>
+                <div id="areasList" class="list">
+                    {% for area in areas %}
+                    <div class="item">
+                        {{ area.nome }}
+                        <button class="delete-btn" onclick="deleteArea('{{ area.nome }}')">✖</button>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="section">
                 <h2>Cadastrar Projeto</h2>
                 <form id="addProjetoForm">
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="newProjeto" placeholder="Novo Projeto (Nome e Número)" required style="flex: 1;">
-                        <button type="submit" style="width: 200px;">Adicionar Projeto</button>
+                        <input type="text" id="newProjeto" placeholder="Nome do Projeto" required style="flex: 1;">
+                        <button type="submit" style="width: 200px;">Salvar</button>
                     </div>
                 </form>
-                <div id="projetosList" class="list"></div>
+                <h3 style="margin-top: 20px; color: #145392; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">Projetos Cadastrados</h3>
+                <div id="projetosList" class="list">
+                    {% for proj in projetos %}
+                    <div class="item">
+                        {{ proj.nome }}
+                        <button class="delete-btn" onclick="deleteProjeto('{{ proj.nome }}')">✖</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Cadastrar Funcionário</h2>
+                <form id="addEmployeeForm">
+                    <label for="employeeName" style="display: block; font-weight: 700; color: #145392; margin-bottom: 5px;">Nome do Funcionário</label>
+                    <input type="text" id="employeeName" placeholder="Nome do Funcionário" required style="width: 100%; margin-bottom: 15px;">
+                    
+                    <button type="submit" style="width: 250px;">Salvar Funcionário</button>
+                </form>
+                <h3 style="margin-top: 20px; color: #145392; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">Funcionários Cadastrados</h3>
+                <div id="employeesList" class="list">
+                    {% for emp in employees %}
+                    <div class="item">
+                        {{ emp.id }} - {{ emp.nome }}
+                        <button class="delete-btn" onclick="deleteEmployee('{{ emp.id }}', '{{ emp.nome }}')">✖</button>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="section">
@@ -266,9 +365,15 @@
                 <form id="addOrcamentoForm">
                     <select id="orcamentoArea" required>
                         <option value="">Selecione Área</option>
+                        {% for area in areas %}
+                        <option value="{{ area.nome }}">{{ area.nome }}</option>
+                        {% endfor %}
                     </select>
                     <select id="orcamentoProjeto" required>
                         <option value="">Selecione Projeto</option>
+                        {% for proj in projetos %}
+                        <option value="{{ proj.nome }}">{{ proj.nome }}</option>
+                        {% endfor %}
                     </select>
                     <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
                     <button type="submit">Definir Orçamento</button>
@@ -367,32 +472,38 @@
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; min-width: 800px;">
                     <thead style="background: #3C1276; color: white;">
                         <tr>
-                            <th style="padding: 8px;">Data</th>
-                            <th style="padding: 8px;">Funcionário</th>
-                            <th style="padding: 8px;">Área</th>
-                            <th style="padding: 8px;">Projeto</th>
-                            <th style="padding: 8px;">Hora de Início</th>
-                            <th style="padding: 8px;">Hora Final</th>
-                            <th style="padding: 8px;">Hora Total</th>
+                            <th style="padding: 8px; text-align: center;">Data</th>
+                            <th style="padding: 8px; text-align: center;">Funcionário</th>
+                            <th style="padding: 8px; text-align: center;">Área</th>
+                            <th style="padding: 8px; text-align: center;">Projeto</th>
+                            <th style="padding: 8px; text-align: center;">Hora de Início</th>
+                            <th style="padding: 8px; text-align: center;">Hora Final</th>
+                            <th style="padding: 8px; text-align: center;">Hora Total</th>
+                            <th style="padding: 8px; text-align: center;">Editar</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for reg in registros %}
                         <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.data.strftime('%d/%m/%Y') }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.funcionario_nome }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.area_nome }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.projeto_nome }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.hora_inicio.strftime('%H:%M') }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else 'Em aberto' }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>{{ reg.duracao_formatada }}</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.data.strftime('%d/%m/%Y') }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.funcionario_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.area_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.projeto_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.hora_inicio.strftime('%H:%M') }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else 'Em aberto' }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;"><strong>{{ reg.duracao_formatada }}</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">
+                                <button class="edit-icon-btn" onclick="openEditModal({{ reg.id }}, '{{ reg.data }}', '{{ reg.hora_inicio.strftime('%H:%M') }}', '{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}', '{{ reg.funcionario_nome }}', '{{ reg.area_nome }}', '{{ reg.projeto_nome }}', {{ reg.funcionario_id }})">
+                                    ✏️
+                                </button>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot style="background: #f1f5f9; font-weight: bold;">
                         <tr>
                             <td colspan="6" style="padding: 12px; text-align: right;">TOTAL DAS HORAS FILTRADAS:</td>
-                            <td style="padding: 12px; color: #3C1276; font-size: 1rem;">
+                            <td style="padding: 12px; color: #3C1276; font-size: 1rem; text-align: center;">
                                 {{ "%.1f" | format(total_horas_filtradas) }}h
                             </td>
                         </tr>
@@ -409,17 +520,17 @@
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem;">
                     <thead style="background: #3C1276; color: white;">
                         <tr>
-                            <th style="padding: 8px;">Área</th>
-                            <th style="padding: 8px;">Projeto</th>
-                            <th style="padding: 8px;">Horas Orçadas</th>
+                            <th style="padding: 8px; text-align: center;">Área</th>
+                            <th style="padding: 8px; text-align: center;">Projeto</th>
+                            <th style="padding: 8px; text-align: center;">Horas Orçadas</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for orc in orcamentos %}
                         <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ orc.area_nome }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ orc.projeto_nome }}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">{{ "%.1f" | format(orc.horas_orcadas) }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ orc.area_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ orc.projeto_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ "%.1f" | format(orc.horas_orcadas) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -429,6 +540,65 @@
         </div>
 
         </div> <!-- End container -->
+
+        <!-- Modal de Edição de Horas -->
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <h2>Editar Registro</h2>
+                <form id="editRegistroForm">
+                    <input type="hidden" id="editRegId">
+                    <input type="hidden" id="editFuncId">
+                    <div class="modal-field">
+                        <label>Funcionário</label>
+                        <input type="text" id="editEmp" readonly>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="modal-field" style="flex: 1;">
+                            <label>Área</label>
+                            <select id="editAreaSelect" required>
+                                {% for area in areas %}
+                                <option value="{{ area.nome }}">{{ area.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="modal-field" style="flex: 1;">
+                            <label>Projeto</label>
+                            <select id="editProjetoSelect" required>
+                                {% for proj in projetos %}
+                                <option value="{{ proj.nome }}">{{ proj.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Campos somente leitura para referência, se necessário -->
+                    <!-- <div class="modal-field"><label>Área Original</label><input type="text" id="editAreaOriginal" readonly></div> -->
+                    <!-- <div class="modal-field"><label>Projeto Original</label><input type="text" id="editProjOriginal" readonly></div> -->
+
+                    <div class="modal-field">
+                        <label>Data</label>
+                        <input type="date" id="editData" required>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="modal-field" style="flex: 1;">
+                            <label>Hora Início</label>
+                            <input type="time" id="editInicio" required>
+                        </div>
+                        <div class="modal-field" style="flex: 1;">
+                            <label>Hora Fim</label>
+                            <input type="time" id="editFim" required>
+                        </div>
+                    </div>
+                    <div class="modal-field">
+                        <label>Motivo da Alteração (Obrigatório)</label>
+                        <textarea id="editMotivo" rows="3" required placeholder="Descreva o motivo da alteração..."></textarea>
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancelar</button>
+                        <button type="submit">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div> <!-- End main-content -->
 
     <script>
@@ -482,42 +652,23 @@
             }
         }
 
-        async function loadAreas() {
-            const response = await fetch('/static/config.js');
-            const script = await response.text();
-            eval(script);
-            const areasList = document.getElementById('areasList');
-            areasList.innerHTML = '';
-            AREAS.forEach(area => {
-                const item = document.createElement('div');
-                item.className = 'item';
-                item.innerHTML = `
-                    ${area}
-                    <button class="delete-btn" onclick="deleteArea('${area}')">X</button>
-                `;
-                areasList.appendChild(item);
-            });
-        }
-
-        async function loadProjetos() {
-            const response = await fetch('/static/config.js');
-            const script = await response.text();
-            eval(script);
-            const projetosList = document.getElementById('projetosList');
-            projetosList.innerHTML = '';
-            PROJETOS.forEach(projeto => {
-                const item = document.createElement('div');
-                item.className = 'item';
-                item.innerHTML = `
-                    ${projeto}
-                    <button class="delete-btn" onclick="deleteProjeto('${projeto}')">X</button>
-                `;
-                projetosList.appendChild(item);
-            });
+        function showFlash(message, type = 'success') {
+            const container = document.getElementById('flash-container');
+            const div = document.createElement('div');
+            div.className = `flash-message flash-${type}`;
+            div.innerHTML = (type === 'success' ? '✓ ' : '⚠ ') + message;
+            container.appendChild(div);
+            
+            setTimeout(() => {
+                div.style.opacity = '0';
+                div.style.transform = 'translateX(20px)';
+                div.style.transition = 'all 0.5s ease';
+                setTimeout(() => div.remove(), 500);
+            }, 3000);
         }
 
         async function deleteArea(area) {
-            if (!confirm(`Tem certeza que deseja excluir a área "${area}"?`)) return;
+            if (!confirm("Deseja realmente excluir esta área/projeto?")) return;
             const response = await fetch('/admin/delete_area', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -525,14 +676,14 @@
             });
             const result = await response.json();
             if (result.status === 'ok') {
-                loadAreas();
+                window.location.reload();
             } else {
                 alert(result.message);
             }
         }
 
         async function deleteProjeto(projeto) {
-            if (!confirm(`Tem certeza que deseja excluir o projeto "${projeto}"?`)) return;
+            if (!confirm("Deseja realmente excluir esta área/projeto?")) return;
             const response = await fetch('/admin/delete_projeto', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -540,9 +691,25 @@
             });
             const result = await response.json();
             if (result.status === 'ok') {
-                loadProjetos();
+                window.location.reload();
             } else {
                 alert(result.message);
+            }
+        }
+
+        async function deleteEmployee(id, nome) {
+            if (!confirm(`Atenção\n\nDeseja realmente excluir o funcionário?`)) return;
+            const response = await fetch('/admin/delete_employee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                showFlash('Funcionário excluído com sucesso.');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showFlash(result.message, 'error');
             }
         }
 
@@ -557,7 +724,7 @@
             const result = await response.json();
             if (result.status === 'ok') {
                 document.getElementById('newArea').value = '';
-                loadAreas();
+                window.location.reload();
             } else {
                 alert(result.message);
             }
@@ -574,7 +741,7 @@
             const result = await response.json();
             if (result.status === 'ok') {
                 document.getElementById('newProjeto').value = '';
-                loadProjetos();
+                window.location.reload();
             } else {
                 alert(result.message);
             }
@@ -582,42 +749,21 @@
 
         document.getElementById('addEmployeeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const id = document.getElementById('employeeId').value;
             const nome = document.getElementById('employeeName').value;
             const response = await fetch('/admin/add_employee', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, nome })
+                body: JSON.stringify({ nome })
             });
             const result = await response.json();
             if (result.status === 'ok') {
-                document.getElementById('employeeId').value = '';
+                showFlash('Funcionário cadastrado com sucesso.');
                 document.getElementById('employeeName').value = '';
-                alert('Funcionário adicionado com sucesso!');
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert(result.message);
+                showFlash(result.message, 'error');
             }
         });
-
-        async function populateSelects() {
-            const response = await fetch('/static/config.js');
-            const script = await response.text();
-            eval(script);
-            const areaSelect = document.getElementById('orcamentoArea');
-            const projetoSelect = document.getElementById('orcamentoProjeto');
-            AREAS.forEach(area => {
-                const option = document.createElement('option');
-                option.value = area;
-                option.textContent = area;
-                areaSelect.appendChild(option);
-            });
-            PROJETOS.forEach(projeto => {
-                const option = document.createElement('option');
-                option.value = projeto;
-                option.textContent = projeto;
-                projetoSelect.appendChild(option);
-            });
-        }
 
         document.getElementById('addOrcamentoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -631,20 +777,63 @@
             });
             const result = await response.json();
             if (result.status === 'ok') {
-                document.getElementById('orcamentoArea').value = '';
-                document.getElementById('orcamentoProjeto').value = '';
-                document.getElementById('orcamentoHoras').value = '';
                 alert('Orçamento definido com sucesso!');
+                window.location.reload();
             } else {
                 alert(result.message);
             }
         });
 
+        // Lógica do Modal de Edição
+        function openEditModal(id, data, inicio, fim, emp, area, proj, funcId) {
+            document.getElementById('editRegId').value = id;
+            document.getElementById('editData').value = data;
+            document.getElementById('editInicio').value = inicio;
+            document.getElementById('editFim').value = fim;
+            document.getElementById('editEmp').value = emp;
+            document.getElementById('editFuncId').value = funcId;
+
+            document.getElementById('editAreaSelect').value = area;
+            document.getElementById('editProjetoSelect').value = proj;
+            document.getElementById('editMotivo').value = '';
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        document.getElementById('editRegistroForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                id: document.getElementById('editRegId').value,
+                data: document.getElementById('editData').value,
+                hora_inicio: document.getElementById('editInicio').value,
+                hora_fim: document.getElementById('editFim').value,
+                area: document.getElementById('editAreaSelect').value,
+                projeto: document.getElementById('editProjetoSelect').value,
+                motivo: document.getElementById('editMotivo').value
+            };
+
+            const response = await fetch('/admin/edit_registro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            if (result.status === 'ok') {
+                closeEditModal();
+                showFlash('Registro atualizado com sucesso');
+                // Recarga parcial ou total para refletir mudanças e cálculos de horas
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showFlash(result.message, 'error');
+            }
+        });
+
         window.onload = () => {
             showView('{{ default_view }}');
-            loadAreas();
-            loadProjetos();
-            populateSelects();
         };
     </script>
 </body>

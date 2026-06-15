@@ -47,6 +47,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     status = db.Column(db.String(20), default='pending', nullable=False) # 'pending', 'active', 'inactive'
     acesso = db.Column(db.String(20), default='relator', nullable=False) # 'administrativo', 'relator'
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
 
     def __repr__(self):
         return f'<User {self.username} - {self.status}>'
@@ -58,6 +59,7 @@ class Area(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
 
     def __repr__(self):
         return f'<Area {self.nome}>'
@@ -69,6 +71,7 @@ class Projeto(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
 
     def __repr__(self):
         return f'<Projeto {self.nome}>'
@@ -78,8 +81,9 @@ class Funcionario(db.Model):
     Modelo para os funcionários.
     Substitui o employees.json. O 'id' é o identificador do QR Code.
     """
-    id = db.Column(db.String(50), primary_key=True) # ID do QR Code
+    id = db.Column(db.Integer, primary_key=True) # ID auto-gerado pelo PostgreSQL
     nome = db.Column(db.String(100), nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
 
     def __repr__(self):
         return f'<Funcionario {self.nome} ({self.id})>'
@@ -93,6 +97,7 @@ class Orcamento(db.Model):
     area_nome = db.Column(db.String(100), nullable=False)
     projeto_nome = db.Column(db.String(100), nullable=False)
     horas_orcadas = db.Column(db.Float, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
 
     # Garante que a combinação de area e projeto seja única
     __table_args__ = (db.UniqueConstraint('area_nome', 'projeto_nome', name='_area_projeto_uc'),)
@@ -107,13 +112,12 @@ class Registro(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     data = db.Column(db.Date, nullable=False)
-    funcionario_id = db.Column(db.String(50), db.ForeignKey('funcionario.id'), nullable=False)
+    funcionario_id = db.Column(db.Integer, db.ForeignKey('funcionario.id'), nullable=False)
     funcionario_nome = db.Column(db.String(100), nullable=False)
     area_nome = db.Column(db.String(100), nullable=False)
     projeto_nome = db.Column(db.String(100), nullable=False)
     hora_inicio = db.Column(db.Time, nullable=False)
     hora_fim = db.Column(db.Time, nullable=True)
-    acao = db.Column(db.String(50), nullable=False) # e.g., 'registro'
     status = db.Column(db.String(20), default='em_andamento')
     total_horas = db.Column(db.Float, nullable=True)
 
@@ -145,6 +149,26 @@ class Registro(db.Model):
     def __repr__(self):
         return f'<Registro {self.data} - {self.funcionario_nome} ({self.hora_inicio}-{self.hora_fim})>'
 
+class HistoricoAlteracaoHoras(db.Model):
+    """
+    Modelo para auditoria de alterações em registros de horas.
+    """
+    __tablename__ = 'historico_alteracoes_horas'
+    id = db.Column(db.Integer, primary_key=True)
+    registro_id = db.Column(db.Integer, db.ForeignKey('registro.id'), nullable=False)
+    data_antiga = db.Column(db.Date)
+    data_nova = db.Column(db.Date)
+    hora_inicio_antiga = db.Column(db.Time)
+    hora_inicio_nova = db.Column(db.Time)
+    hora_fim_antiga = db.Column(db.Time)
+    hora_fim_nova = db.Column(db.Time)
+    motivo = db.Column(db.Text, nullable=False)
+    area_antiga = db.Column(db.String(100))
+    area_nova = db.Column(db.String(100))
+    projeto_antigo = db.Column(db.String(100))
+    projeto_novo = db.Column(db.String(100))
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+
 # --- Variáveis Globais e Funções de Inicialização ---
 # As variáveis globais AREAS, PROJETOS, CHARTS serão populadas do DB ou config.json.
 AREAS = []
@@ -158,8 +182,8 @@ def load_initial_data_from_db():
     """
     global AREAS, PROJETOS, CHARTS
     with app.app_context():
-        AREAS[:] = [area.nome for area in Area.query.order_by(Area.nome).all()]
-        PROJETOS[:] = [projeto.nome for projeto in Projeto.query.order_by(Projeto.nome).all()]
+        AREAS[:] = [area.nome for area in Area.query.filter_by(ativo=True).order_by(Area.nome).all()]
+        PROJETOS[:] = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()]
         try:
             # Mantém a configuração de gráficos em config.json por enquanto
             with open('config.json', 'r', encoding='utf-8') as f:
@@ -203,8 +227,8 @@ def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, dat
             data_fim = datetime.strptime(data_fim, '%Y-%m-%d').date()
         query_reg = query_reg.filter(Registro.data <= data_fim)
 
-    all_registros = query_reg.order_by(Registro.data.desc(), Registro.hora_inicio.desc()).all()
-    all_orcamentos_db = query_orc.order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
+    all_registros = query_reg.order_by(Registro.data.desc(), Registro.hora_inicio.desc()).all() # Mantém histórico
+    all_orcamentos_db = query_orc.filter_by(ativo=True).order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
 
     # Calcula horas trabalhadas por área/projeto a partir dos registros do DB
     horas_trabalhadas = {}
@@ -323,7 +347,6 @@ def registrar():
                 area_nome=area,
                 projeto_nome=projeto,
                 hora_inicio=agora.time(),
-                acao="registro",
                 status="em_andamento"
             )
             db.session.add(novo_registro)
@@ -360,8 +383,8 @@ def config_js():
     Agora carrega áreas e projetos do banco de dados.
     """
     # Carrega as áreas e projetos do banco de dados para o frontend
-    areas_db = [area.nome for area in Area.query.order_by(Area.nome).all()]
-    projetos_db = [projeto.nome for projeto in Projeto.query.order_by(Projeto.nome).all()]
+    areas_db = [area.nome for area in Area.query.filter_by(ativo=True).order_by(Area.nome).all()]
+    projetos_db = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()]
 
     areas_json = json.dumps(areas_db)
     projetos_json = json.dumps(projetos_db)
@@ -379,7 +402,7 @@ def api_employees():
     Retorna a lista de funcionários cadastrados no banco de dados.
     Substitui a leitura de employees.json.
     """
-    employees = Funcionario.query.order_by(Funcionario.nome).all()
+    employees = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
     return jsonify([{"id": emp.id, "nome": emp.nome} for emp in employees])
 
 @app.route('/login', methods=['POST'])
@@ -392,7 +415,7 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter_by(username=username, ativo=True).first()
 
     if user and bcrypt.check_password_hash(user.password_hash, password):
         if user.status == 'active':
@@ -467,10 +490,10 @@ def admin():
     total_horas_filtradas = sum(reg.total_horas for reg in all_registros if reg.total_horas)
 
     # Carrega todos os dados necessários para exibir no painel de administração
-    areas = Area.query.order_by(Area.nome).all()
-    projetos = Projeto.query.order_by(Projeto.nome).all()
-    employees = Funcionario.query.order_by(Funcionario.nome).all()
-    users = User.query.order_by(User.username).all() # Para gestão de usuários
+    areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
+    projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
+    employees = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
+    users = User.query.filter_by(ativo=True).order_by(User.username).all() # Para gestão de usuários
 
     return render_template('admin.html',
                            areas=areas,
@@ -498,13 +521,19 @@ def add_area():
     area_nome = data.get('area')
     if area_nome:
         existing_area = Area.query.filter_by(nome=area_nome).first()
-        if not existing_area:
+        if existing_area:
+            if not existing_area.ativo:
+                existing_area.ativo = True # Reativa se já existia inativa
+                db.session.commit()
+                load_initial_data_from_db()
+                return jsonify({"status": "ok"})
+            return jsonify({"status": "error", "message": "Área já existe"})
+        else:
             new_area = Area(nome=area_nome)
             db.session.add(new_area)
-            db.session.commit()
-            load_initial_data_from_db() # Recarrega as variáveis globais
-            return jsonify({"status": "ok"})
-        return jsonify({"status": "error", "message": "Área já existe"})
+        db.session.commit()
+        load_initial_data_from_db()
+        return jsonify({"status": "ok"})
     return jsonify({"status": "error", "message": "Nome da área inválido"})
 
 @app.route('/admin/delete_area', methods=['POST'])
@@ -515,7 +544,7 @@ def delete_area():
     area_nome = data.get('area')
     area = Area.query.filter_by(nome=area_nome).first()
     if area:
-        db.session.delete(area)
+        area.ativo = False # Soft Delete
         db.session.commit()
         load_initial_data_from_db()
         return jsonify({"status": "ok"})
@@ -529,13 +558,19 @@ def add_projeto():
     projeto_nome = data.get('projeto')
     if projeto_nome:
         existing_projeto = Projeto.query.filter_by(nome=projeto_nome).first()
-        if not existing_projeto:
+        if existing_projeto:
+            if not existing_projeto.ativo:
+                existing_projeto.ativo = True # Reativa se já existia inativa
+                db.session.commit()
+                load_initial_data_from_db()
+                return jsonify({"status": "ok"})
+            return jsonify({"status": "error", "message": "Projeto já existe"})
+        else:
             new_projeto = Projeto(nome=projeto_nome)
             db.session.add(new_projeto)
-            db.session.commit()
-            load_initial_data_from_db()
-            return jsonify({"status": "ok"})
-        return jsonify({"status": "error", "message": "Projeto já existe"})
+        db.session.commit()
+        load_initial_data_from_db()
+        return jsonify({"status": "ok"})
     return jsonify({"status": "error", "message": "Nome do projeto inválido"})
 
 @app.route('/admin/delete_projeto', methods=['POST'])
@@ -546,28 +581,134 @@ def delete_projeto():
     projeto_nome = data.get('projeto')
     projeto = Projeto.query.filter_by(nome=projeto_nome).first()
     if projeto:
-        db.session.delete(projeto)
+        projeto.ativo = False # Soft Delete
         db.session.commit()
         load_initial_data_from_db()
         return jsonify({"status": "ok"})
     return jsonify({"status": "error", "message": "Projeto não encontrado"})
+
+@app.route('/admin/delete_employee', methods=['POST'])
+def delete_employee():
+    """Exclui um funcionário do banco de dados após validações."""
+    if session.get('acesso') != 'administrativo': 
+        return jsonify({"status": "error", "message": "Não autorizado"})
+    
+    data = request.get_json()
+    idf = data.get('id')
+    
+    employee = Funcionario.query.get(idf)
+    if not employee:
+        return jsonify({"status": "error", "message": "Funcionário não encontrado."})
+    
+    # Regra de Negócio: Verificar se há atividade em andamento
+    registro_aberto = Registro.query.filter_by(funcionario_id=idf, status='em_andamento').first()
+    if registro_aberto:
+        return jsonify({"status": "error", "message": "Não é possível excluir um funcionário com atividade em andamento."})
+    
+    try:
+        # Soft Delete do funcionário, mantendo registros históricos
+        employee.ativo = False
+        db.session.commit()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Erro ao excluir: {e}"})
 
 @app.route('/admin/add_employee', methods=['POST'])
 def add_employee():
     """Adiciona um novo funcionário ao banco de dados."""
     if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
     data = request.get_json()
-    idf = data.get('id')
     nome = data.get('nome')
-    if idf and nome:
-        existing_employee = Funcionario.query.get(idf)
-        if not existing_employee:
-            new_employee = Funcionario(id=idf, nome=nome)
-            db.session.add(new_employee)
-            db.session.commit()
-            return jsonify({"status": "ok"})
-        return jsonify({"status": "error", "message": "Funcionário com este ID já existe"})
-    return jsonify({"status": "error", "message": "Dados do funcionário inválidos"})
+
+    if not nome:
+        return jsonify({"status": "error", "message": "Informe o nome do funcionário."})
+
+    try:
+        new_employee = Funcionario(nome=nome, ativo=True)
+        db.session.add(new_employee)
+        db.session.commit()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Erro ao salvar: {e}"})
+
+@app.route('/admin/edit_registro', methods=['POST'])
+def edit_registro():
+    """Edita um registro de horas e salva no histórico de auditoria."""
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
+    
+    data_req = request.get_json()
+    reg_id = data_req.get('id')
+    nova_data_str = data_req.get('data')
+    nova_inicio_str = data_req.get('hora_inicio')
+    nova_fim_str = data_req.get('hora_fim')
+    nova_area_nome = data_req.get('area')
+    novo_projeto_nome = data_req.get('projeto')
+    motivo = data_req.get('motivo')
+
+    if not motivo:
+        return jsonify({"status": "error", "message": "O motivo da alteração é obrigatório."})
+
+    registro = Registro.query.get(reg_id)
+    if not registro:
+        return jsonify({"status": "error", "message": "Registro não encontrado."})
+
+    # Validações para Área e Projeto
+    if nova_area_nome:
+        area_existe = Area.query.filter_by(nome=nova_area_nome, ativo=True).first()
+        if not area_existe:
+            return jsonify({"status": "error", "message": f"Área '{nova_area_nome}' não encontrada ou inativa."})
+    if novo_projeto_nome:
+        projeto_existe = Projeto.query.filter_by(nome=novo_projeto_nome, ativo=True).first()
+        if not projeto_existe:
+            return jsonify({"status": "error", "message": f"Projeto '{novo_projeto_nome}' não encontrado ou inativo."})
+
+    try:
+        # Criar log de auditoria
+        historico = HistoricoAlteracaoHoras(
+            registro_id=registro.id,
+            data_antiga=registro.data,
+            area_antiga=registro.area_nome,
+            projeto_antigo=registro.projeto_nome,
+            hora_inicio_antiga=registro.hora_inicio,
+            hora_fim_antiga=registro.hora_fim,
+            motivo=motivo
+        )
+
+        # Atualizar registro
+        if nova_data_str:
+            registro.data = datetime.strptime(nova_data_str, '%Y-%m-%d').date()
+        if nova_inicio_str:
+            registro.hora_inicio = datetime.strptime(nova_inicio_str, '%H:%M').time()
+        if nova_fim_str:
+            registro.hora_fim = datetime.strptime(nova_fim_str, '%H:%M').time()
+        if nova_area_nome:
+            registro.area_nome = nova_area_nome
+        if novo_projeto_nome:
+            registro.projeto_nome = novo_projeto_nome
+
+        # Recalcular total de horas
+        dt_inicio = datetime.combine(registro.data, registro.hora_inicio)
+        dt_fim = datetime.combine(registro.data, registro.hora_fim)
+        if dt_fim < dt_inicio:
+            dt_fim += timedelta(days=1)
+        registro.total_horas = (dt_fim - dt_inicio).total_seconds() / 3600
+
+        # Completar log de auditoria
+        historico.data_nova = registro.data
+        historico.area_nova = registro.area_nome
+        historico.projeto_nova = registro.projeto_nome
+        historico.hora_inicio_nova = registro.hora_inicio
+        historico.hora_fim_nova = registro.hora_fim
+
+        db.session.add(historico)
+        db.session.commit()
+        atualizar_graficos()
+        return jsonify({"status": "ok", "message": "Registro atualizado com sucesso"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Erro ao editar: {e}"})
 
 @app.route('/admin/add_orcamento', methods=['POST'])
 def add_orcamento():
@@ -594,6 +735,7 @@ def add_orcamento():
     if orcamento:
         # Se existir, atualiza as horas orçadas
         orcamento.horas_orcadas = horasOrcadas
+        orcamento.ativo = True # Garante que está ativo ao atualizar
     else:
         # Se não existir, cria um novo orçamento
         orcamento = Orcamento(
@@ -637,7 +779,7 @@ def api_orcamentos():
     Retorna a lista de orçamentos cadastrados no banco de dados.
     Substitui a leitura de orcamentos.json.
     """
-    orcamentos = Orcamento.query.order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
+    orcamentos = Orcamento.query.filter_by(ativo=True).order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
     return jsonify([
         {
             "area": o.area_nome,
@@ -727,8 +869,8 @@ def view_reports():
     )
     
     # Carrega opções para os filtros
-    areas = Area.query.order_by(Area.nome).all()
-    projetos = Projeto.query.order_by(Projeto.nome).all()
+    areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
+    projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
 
     return render_template('reports.html', 
                            report_data=report_data, # Dados processados para a tabela de gráficos
@@ -749,7 +891,7 @@ def atualizar_graficos():
     # --- Aba Registros ---
     ws_reg = wb.active
     ws_reg.title = "Registros"
-    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Hora Início", "Hora Fim", "Ação"]
+    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Hora Início", "Hora Fim", "Hora Total"]
     ws_reg.append(headers_reg)
     
     # Estilo dos cabeçalhos
@@ -758,7 +900,7 @@ def atualizar_graficos():
         cell.alignment = Alignment(horizontal='center')
     
     # Largura das colunas
-    column_widths_reg = [12, 10, 30, 20, 15, 15, 15, 10]
+    column_widths_reg = [12, 10, 30, 20, 15, 15, 15, 15]
     for i, width in enumerate(column_widths_reg, 1):
         ws_reg.column_dimensions[ws_reg.cell(row=1, column=i).column_letter].width = width
 
@@ -771,7 +913,7 @@ def atualizar_graficos():
             reg.projeto_nome,
             reg.hora_inicio.strftime("%H:%M"),
             reg.hora_fim.strftime("%H:%M") if reg.hora_fim else "Em aberto",
-            reg.acao
+            reg.duracao_formatada
         ])
 
     # --- Aba Orçamentos ---

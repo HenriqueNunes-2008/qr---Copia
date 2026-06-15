@@ -23,7 +23,7 @@ function iniciarLeitor() {
                 const checkResp = await fetch("/verificar", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: obj.id, nome: obj.nome })
+                    body: JSON.stringify({ id: obj.id, nome: obj.nome }) // ID já é int do banco, não precisa de parseInt aqui
                 });
                 const status = await checkResp.json();
 
@@ -102,7 +102,7 @@ async function enviarFormulario(e) {
 
     const tipoAcao = document.getElementById("tipoAcao").value;
     const payload = {
-        id: currentUser.id,
+        id: currentUser.id, // ID já é int do banco, não precisa de parseInt aqui
         nome: currentUser.nome,
         tipoAcao: tipoAcao,
         area: document.getElementById("area") ? document.getElementById("area").value : null,
