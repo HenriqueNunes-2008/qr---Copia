@@ -997,16 +997,6 @@ with app.app_context():
     load_initial_data_from_db()
 
 if __name__ == '__main__':
-    with app.app_context():
-        # Cria um usuário administrador padrão se não houver nenhum.
-        # Isso é útil para o primeiro acesso ao painel de administração.
-        if User.query.filter_by(username='admin').first() is None:
-            hashed_password = bcrypt.generate_password_hash('admin').decode('utf-8')
-            admin_user = User(username='admin', password_hash=hashed_password, email='admin@fleximedical.com.br', status='active', acesso='administrativo')
-            db.session.add(admin_user)
-            db.session.commit()
-            print("Usuário 'admin' criado com senha 'admin' e status 'active'.")
-
     port = int(os.environ.get('PORT', 5000))
     # Em ambiente de produção, debug=False e host='0.0.0.0' são recomendados.
     app.run(host='0.0.0.0', port=port, debug=True)
