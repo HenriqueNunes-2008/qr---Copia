@@ -988,12 +988,16 @@ def atualizar_graficos():
 
 # --- Inicialização da Aplicação ---
 
+# Esta função garante que o banco de dados e as tabelas existam
+# independentemente de como o app é iniciado (Gunicorn ou Python direto)
+with app.app_context():
+    db.create_all()
+    # Garante que o arquivo Excel e as abas existam
+    criar_planilha_se_nao_existir()
+    load_initial_data_from_db()
+
 if __name__ == '__main__':
-    # Garante que todas as tabelas sejam criadas no banco de dados
     with app.app_context():
-        db.create_all()
-        # Garante que o arquivo Excel e as abas existam
-        criar_planilha_se_nao_existir()
         # Cria um usuário administrador padrão se não houver nenhum.
         # Isso é útil para o primeiro acesso ao painel de administração.
         if User.query.filter_by(username='admin').first() is None:
@@ -1002,9 +1006,6 @@ if __name__ == '__main__':
             db.session.add(admin_user)
             db.session.commit()
             print("Usuário 'admin' criado com senha 'admin' e status 'active'.")
-        
-        # Carrega os dados iniciais (áreas, projetos, charts) após a criação das tabelas
-        load_initial_data_from_db()
 
     port = int(os.environ.get('PORT', 5000))
     # Em ambiente de produção, debug=False e host='0.0.0.0' são recomendados.
