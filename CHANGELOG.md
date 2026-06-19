@@ -1,6 +1,22 @@
 # Changelog do Projeto QR
 
+## Versão 1.5.0 - Correções no fluxo de QR Codes (Atividade) (2026-06-19)
+
+Esta versão corrige o fluxo de QR Code para popular corretamente o campo **Atividade** para o funcionário.
+
+### Principais Mudanças:
+
+-   **Novo endpoint de API para Atividades:**
+    -   Implementada a rota `GET /api/atividades` para retornar as atividades cadastradas no banco.
+-   **Correção no front-end do scanner QR:**
+    -   Atualizado o `static/script.js` para carregar as **Atividades** via `fetch('/api/atividades')`, evitando falhas quando os arrays globais do `config.js` não estiverem disponíveis no timing do scan.
+-   **Integração dos QR Codes:**
+    -   Garantida a continuidade do fluxo automatizado de QR para **Funcionário → Área/Projeto/Atividade → Iniciar/Finalizar**, preservando o comportamento esperado de leitura de QRs.
+
+---
+
 ## Versão 1.4.0 - Edição com Auditoria, Soft Delete e IDs Automáticos (2026-06-15)
+
 
 Esta versão foca em integridade de dados, rastreabilidade e melhorias na experiência do administrador.
 
