@@ -285,6 +285,7 @@
         <h3>Menu Administrativo</h3>
         <a href="javascript:void(0)" onclick="showView('registros')">Registro de Horas</a>
         <a href="javascript:void(0)" onclick="showView('orcamentos')">Horas Orçadas</a>
+        <a href="/qrcodes">QR Codes</a>
     </div>
 
     <div id="flash-container"></div>
@@ -361,6 +362,25 @@
             </div>
 
             <div class="section">
+                <h2>Cadastrar Atividade</h2>
+                <form id="addAtividadeForm">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="newAtividade" placeholder="Nome da Atividade" required style="flex: 1;">
+                        <button type="submit" style="width: 200px;">Cadastrar Atividade</button>
+                    </div>
+                </form>
+                <h3 style="margin-top: 20px; color: #145392; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">Atividades Cadastradas</h3>
+                <div id="atividadesList" class="list">
+                    {% for at in atividades %}
+                    <div class="item">
+                        {{ at.nome }}
+                        <button class="delete-btn" onclick="deleteAtividade({{ at.id }})">✖</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="section">
                 <h2>Cadastrar Orçamento</h2>
                 <form id="addOrcamentoForm">
                     <select id="orcamentoArea" required>
@@ -378,12 +398,6 @@
                     <input type="number" id="orcamentoHoras" placeholder="Horas Orçadas" step="0.1" required>
                     <button type="submit">Definir Orçamento</button>
                 </form>
-            </div>
-
-            <div class="section">
-                <h2>Visualizar QR Codes</h2>
-                <p>Acesse a página de visualização para imprimir os códigos dos funcionários:</p>
-                <a href="/qrcodes">Ver QR Codes dos Funcionários</a>
             </div>
         </div> <!-- End main-settings -->
 
@@ -476,6 +490,7 @@
                             <th style="padding: 8px; text-align: center;">Funcionário</th>
                             <th style="padding: 8px; text-align: center;">Área</th>
                             <th style="padding: 8px; text-align: center;">Projeto</th>
+                            <th style="padding: 8px; text-align: center;">Atividade</th>
                             <th style="padding: 8px; text-align: center;">Hora de Início</th>
                             <th style="padding: 8px; text-align: center;">Hora Final</th>
                             <th style="padding: 8px; text-align: center;">Hora Total</th>
@@ -489,11 +504,12 @@
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.funcionario_nome }}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.area_nome }}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.projeto_nome }}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.atividade_nome }}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.hora_inicio.strftime('%H:%M') }}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else 'Em aberto' }}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;"><strong>{{ reg.duracao_formatada }}</strong></td>
                             <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">
-                                <button class="edit-icon-btn" onclick="openEditModal({{ reg.id }}, '{{ reg.data }}', '{{ reg.hora_inicio.strftime('%H:%M') }}', '{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}', '{{ reg.funcionario_nome }}', '{{ reg.area_nome }}', '{{ reg.projeto_nome }}', {{ reg.funcionario_id }})">
+                                <button class="edit-icon-btn" onclick="openEditModal({{ reg.id }}, '{{ reg.data }}', '{{ reg.hora_inicio.strftime('%H:%M') }}', '{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}', '{{ reg.funcionario_nome }}', '{{ reg.area_nome }}', '{{ reg.projeto_nome }}', {{ reg.funcionario_id }}, '{{ reg.atividade_nome }}')">
                                     ✏️
                                 </button>
                             </td>
@@ -566,6 +582,14 @@
                             <select id="editProjetoSelect" required>
                                 {% for proj in projetos %}
                                 <option value="{{ proj.nome }}">{{ proj.nome }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="modal-field" style="flex: 1;">
+                            <label>Atividade</label>
+                            <select id="editAtividadeSelect" required>
+                                {% for at in atividades %}
+                                <option value="{{ at.nome }}">{{ at.nome }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -747,6 +771,39 @@
             }
         });
 
+        document.getElementById('addAtividadeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('newAtividade').value;
+            const response = await fetch('/admin/add_activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                showFlash('Atividade cadastrada com sucesso.');
+                document.getElementById('newAtividade').value = '';
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showFlash(result.message, 'error');
+            }
+        });
+
+        async function deleteAtividade(id) {
+            if (!confirm("Deseja realmente excluir esta atividade?")) return;
+            const response = await fetch('/admin/delete_activity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                window.location.reload();
+            } else {
+                alert(result.message);
+            }
+        }
+
         document.getElementById('addEmployeeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const nome = document.getElementById('employeeName').value;
@@ -785,7 +842,7 @@
         });
 
         // Lógica do Modal de Edição
-        function openEditModal(id, data, inicio, fim, emp, area, proj, funcId) {
+        function openEditModal(id, data, inicio, fim, emp, area, proj, funcId, atividade) {
             document.getElementById('editRegId').value = id;
             document.getElementById('editData').value = data;
             document.getElementById('editInicio').value = inicio;
@@ -795,6 +852,7 @@
 
             document.getElementById('editAreaSelect').value = area;
             document.getElementById('editProjetoSelect').value = proj;
+            document.getElementById('editAtividadeSelect').value = atividade;
             document.getElementById('editMotivo').value = '';
             document.getElementById('editModal').style.display = 'flex';
         }
@@ -812,6 +870,7 @@
                 hora_fim: document.getElementById('editFim').value,
                 area: document.getElementById('editAreaSelect').value,
                 projeto: document.getElementById('editProjetoSelect').value,
+                atividade: document.getElementById('editAtividadeSelect').value,
                 motivo: document.getElementById('editMotivo').value
             };
 

@@ -1,5 +1,7 @@
 from flask import Flask, request, render_template, jsonify, Response, redirect, url_for, session, send_file
 from openpyxl import Workbook, load_workbook
+import logging
+
 from openpyxl.chart import BarChart, Reference, DoughnutChart
 from openpyxl.styles import Font, Alignment
 from openpyxl.worksheet.table import Table, TableStyleInfo
@@ -8,6 +10,7 @@ import json
 from datetime import datetime, date, time, timedelta
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt # Para hash de senhas
 
 # Carrega as variáveis de ambiente do arquivo .env antes de qualquer configuração
@@ -29,6 +32,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "uma_chave_secreta_muito_segura_e_longa_para_producao")
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 bcrypt = Bcrypt(app) # Inicializa o Bcrypt para hash de senhas
 
 # --- Definição dos Modelos (Tabelas) do Banco de Dados ---
@@ -88,6 +92,18 @@ class Funcionario(db.Model):
     def __repr__(self):
         return f'<Funcionario {self.nome} ({self.id})>'
 
+class Atividade(db.Model):
+    """
+    Modelo para atividades específicas (ex: Solda, Montagem).
+    """
+    __tablename__ = 'atividades'
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+    def __repr__(self):
+        return f'<Atividade {self.nome}>'
+
 class Orcamento(db.Model):
     """
     Modelo para os orçamentos de horas por área/projeto/número.
@@ -116,6 +132,7 @@ class Registro(db.Model):
     funcionario_nome = db.Column(db.String(100), nullable=False)
     area_nome = db.Column(db.String(100), nullable=False)
     projeto_nome = db.Column(db.String(100), nullable=False)
+    atividade_nome = db.Column(db.String(100), nullable=False)
     hora_inicio = db.Column(db.Time, nullable=False)
     hora_fim = db.Column(db.Time, nullable=True)
     status = db.Column(db.String(20), default='em_andamento')
@@ -167,12 +184,15 @@ class HistoricoAlteracaoHoras(db.Model):
     area_nova = db.Column(db.String(100))
     projeto_antigo = db.Column(db.String(100))
     projeto_novo = db.Column(db.String(100))
+    atividade_antiga = db.Column(db.String(100))
+    atividade_nova = db.Column(db.String(100))
     criado_em = db.Column(db.DateTime, default=datetime.now)
 
 # --- Variáveis Globais e Funções de Inicialização ---
 # As variáveis globais AREAS, PROJETOS, CHARTS serão populadas do DB ou config.json.
 AREAS = []
 PROJETOS = []
+ATIVIDADES = []
 CHARTS = ['bar'] # Default para tipos de gráficos
 
 def load_initial_data_from_db():
@@ -180,10 +200,11 @@ def load_initial_data_from_db():
     Carrega as listas de áreas e projetos do banco de dados para as variáveis globais.
     Também tenta carregar a configuração de gráficos de um arquivo JSON.
     """
-    global AREAS, PROJETOS, CHARTS
+    global AREAS, PROJETOS, ATIVIDADES, CHARTS
     with app.app_context():
         AREAS[:] = [area.nome for area in Area.query.filter_by(ativo=True).order_by(Area.nome).all()]
         PROJETOS[:] = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()]
+        ATIVIDADES[:] = [at.nome for at in Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()]
         try:
             # Mantém a configuração de gráficos em config.json por enquanto
             with open('config.json', 'r', encoding='utf-8') as f:
@@ -288,9 +309,13 @@ def verificar():
     """
     Verifica se há um registro de atividade "em andamento" para um funcionário.
     """
-    data_req = request.get_json()
+    app.logger.info("/verificar chamado")
+    data_req = request.get_json() or {}
     idf = data_req.get("id")
-    nome = data_req.get("nome")
+    app.logger.info("/verificar payload id=%s", idf)
+    funcionario = db.session.get(Funcionario, idf)
+    app.logger.info("/verificar funcionario=%s", funcionario)
+
 
     # Busca o último registro aberto do funcionário (status em_andamento)
     registro_aberto = Registro.query.filter_by(
@@ -307,16 +332,25 @@ def verificar():
         minutos = (segundos % 3600) // 60
         tempo_str = f"{horas} horas e {minutos} minutos" if horas > 0 else f"{minutos} minutos"
 
-        return jsonify({
+        retorno = {
             "aberto": True,
+            "nome": funcionario.nome if funcionario else "Desconhecido",
             "area": registro_aberto.area_nome,
             "projeto": registro_aberto.projeto_nome,
+            "atividade": registro_aberto.atividade_nome,
             "inicio": registro_aberto.hora_inicio.strftime("%H:%M"),
-            "data": registro_aberto.data.strftime("%d/%m/%Y"),
-            "tempo_decorrido": tempo_str
-        })
-    else:
-        return jsonify({"aberto": False, "area": "", "projeto": ""})
+            "data": registro_aberto.data.strftime("%d/%m/%Y")
+        }
+        print("RETORNO:", retorno)
+        return jsonify(retorno)
+
+    retorno = {
+        "aberto": False,
+        "nome": funcionario.nome if funcionario else "Novo"
+    }
+    print("RETORNO:", retorno)
+    return jsonify(retorno)
+
 
 @app.route('/registrar', methods=['POST'])
 def registrar():
@@ -331,7 +365,7 @@ def registrar():
     agora = datetime.now()
 
     try:
-        funcionario = Funcionario.query.get(idf)
+        funcionario = db.session.get(Funcionario, idf)
         if not funcionario:
             funcionario = Funcionario(id=idf, nome=nome)
             db.session.add(funcionario)
@@ -339,6 +373,7 @@ def registrar():
         if tipo_acao == 'iniciar':
             area = data_payload.get("area")
             projeto = data_payload.get("projeto")
+            atividade = data_payload.get("atividade")
             
             novo_registro = Registro(
                 data=agora.date(),
@@ -346,6 +381,7 @@ def registrar():
                 funcionario_nome=nome,
                 area_nome=area,
                 projeto_nome=projeto,
+                atividade_nome=atividade,
                 hora_inicio=agora.time(),
                 status="em_andamento"
             )
@@ -376,6 +412,21 @@ def registrar():
         print(f"Erro ao registrar no banco de dados: {e}")
         return jsonify({"status": "error", "message": f"Erro ao registrar: {e}"})
 
+@app.route('/admin/get_name_by_id')
+def get_name_by_id():
+    """Rota auxiliar para o scanner converter ID de QR em Nome."""
+    tipo = request.args.get('tipo')
+    target_id = request.args.get('id')
+    
+    model_map = {'area': Area, 'projeto': Projeto, 'atividade': Atividade}
+    if tipo in model_map:
+        try:
+            item = db.session.get(model_map[tipo], int(target_id))
+            return jsonify({"nome": item.nome if item else None})
+        except (ValueError, TypeError):
+            return jsonify({"nome": None})
+    return jsonify({"nome": None})
+
 @app.route('/static/config.js')
 def config_js():
     """
@@ -404,6 +455,13 @@ def api_employees():
     """
     employees = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
     return jsonify([{"id": emp.id, "nome": emp.nome} for emp in employees])
+
+@app.route('/api/atividades')
+def api_atividades():
+    """Retorna as atividades cadastradas (ativo=true) para popular o select no front."""
+    atividades = Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()
+    return jsonify([{"id": at.id, "nome": at.nome} for at in atividades])
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -492,12 +550,14 @@ def admin():
     # Carrega todos os dados necessários para exibir no painel de administração
     areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
     projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
+    atividades_list = Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()
     employees = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
     users = User.query.filter_by(ativo=True).order_by(User.username).all() # Para gestão de usuários
 
     return render_template('admin.html',
                            areas=areas,
                            projetos=projetos,
+                           atividades=atividades_list,
                            employees=employees,
                            orcamentos=all_orcamentos_db,
                            users=users,
@@ -596,7 +656,7 @@ def delete_employee():
     data = request.get_json()
     idf = data.get('id')
     
-    employee = Funcionario.query.get(idf)
+    employee = db.session.get(Funcionario, idf)
     if not employee:
         return jsonify({"status": "error", "message": "Funcionário não encontrado."})
     
@@ -627,8 +687,13 @@ def add_employee():
     try:
         new_employee = Funcionario(nome=nome, ativo=True)
         db.session.add(new_employee)
-        db.session.commit()
-        return jsonify({"status": "ok"})
+        db.session.commit() # O PostgreSQL gera o ID aqui
+        
+        return jsonify({
+            "status": "ok", 
+            "id": new_employee.id, 
+            "message": f"Funcionário {nome} cadastrado com ID {new_employee.id}"
+        })
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Erro ao salvar: {e}"})
@@ -644,13 +709,14 @@ def edit_registro():
     nova_inicio_str = data_req.get('hora_inicio')
     nova_fim_str = data_req.get('hora_fim')
     nova_area_nome = data_req.get('area')
+    nova_atividade_nome = data_req.get('atividade')
     novo_projeto_nome = data_req.get('projeto')
     motivo = data_req.get('motivo')
 
     if not motivo:
         return jsonify({"status": "error", "message": "O motivo da alteração é obrigatório."})
 
-    registro = Registro.query.get(reg_id)
+    registro = db.session.get(Registro, reg_id)
     if not registro:
         return jsonify({"status": "error", "message": "Registro não encontrado."})
 
@@ -663,6 +729,10 @@ def edit_registro():
         projeto_existe = Projeto.query.filter_by(nome=novo_projeto_nome, ativo=True).first()
         if not projeto_existe:
             return jsonify({"status": "error", "message": f"Projeto '{novo_projeto_nome}' não encontrado ou inativo."})
+    if nova_atividade_nome:
+        atividade_existe = Atividade.query.filter_by(nome=nova_atividade_nome, ativo=True).first()
+        if not atividade_existe:
+            return jsonify({"status": "error", "message": f"Atividade '{nova_atividade_nome}' não encontrada ou inativa."})
 
     try:
         # Criar log de auditoria
@@ -671,6 +741,7 @@ def edit_registro():
             data_antiga=registro.data,
             area_antiga=registro.area_nome,
             projeto_antigo=registro.projeto_nome,
+            atividade_antiga=registro.atividade_nome,
             hora_inicio_antiga=registro.hora_inicio,
             hora_fim_antiga=registro.hora_fim,
             motivo=motivo
@@ -687,18 +758,22 @@ def edit_registro():
             registro.area_nome = nova_area_nome
         if novo_projeto_nome:
             registro.projeto_nome = novo_projeto_nome
+        if nova_atividade_nome:
+            registro.atividade_nome = nova_atividade_nome
 
         # Recalcular total de horas
-        dt_inicio = datetime.combine(registro.data, registro.hora_inicio)
-        dt_fim = datetime.combine(registro.data, registro.hora_fim)
-        if dt_fim < dt_inicio:
-            dt_fim += timedelta(days=1)
-        registro.total_horas = (dt_fim - dt_inicio).total_seconds() / 3600
+        if registro.hora_inicio and registro.hora_fim:
+            dt_inicio = datetime.combine(registro.data, registro.hora_inicio)
+            dt_fim = datetime.combine(registro.data, registro.hora_fim)
+            if dt_fim < dt_inicio:
+                dt_fim += timedelta(days=1)
+            registro.total_horas = (dt_fim - dt_inicio).total_seconds() / 3600
 
         # Completar log de auditoria
         historico.data_nova = registro.data
         historico.area_nova = registro.area_nome
-        historico.projeto_nova = registro.projeto_nome
+        historico.projeto_novo = registro.projeto_nome
+        historico.atividade_nova = registro.atividade_nome
         historico.hora_inicio_nova = registro.hora_inicio
         historico.hora_fim_nova = registro.hora_fim
 
@@ -747,6 +822,57 @@ def add_orcamento():
     db.session.commit()
     atualizar_graficos() # Atualiza os gráficos após a alteração do orçamento
     return jsonify({"status": "ok"})
+
+@app.route('/admin/add_activity', methods=['POST'])
+def add_activity():
+    """Adiciona uma nova atividade ao banco de dados."""
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
+    data = request.get_json()
+    nome = data.get('nome')
+    if nome:
+        existing = Atividade.query.filter_by(nome=nome).first()
+        if existing:
+            if not existing.ativo:
+                existing.ativo = True
+                db.session.commit()
+                return jsonify({"status": "ok", "id": existing.id, "nome": existing.nome})
+            return jsonify({"status": "error", "message": "Atividade já existe"})
+        
+        new_act = Atividade(nome=nome)
+        db.session.add(new_act)
+        db.session.commit()
+        return jsonify({"status": "ok", "id": new_act.id, "nome": new_act.nome})
+    return jsonify({"status": "error", "message": "Nome inválido"})
+
+@app.route('/admin/delete_activity', methods=['POST'])
+def delete_activity():
+    """Soft delete de atividade."""
+    if session.get('acesso') != 'administrativo': return jsonify({"status": "error", "message": "Não autorizado"})
+    data = request.get_json()
+    id_act = data.get('id')
+    act = db.session.get(Atividade, id_act)
+    if act:
+        act.ativo = False
+        db.session.commit()
+        return jsonify({"status": "ok"})
+    return jsonify({"status": "error", "message": "Atividade não encontrada"})
+
+@app.route('/admin/get_qrcodes')
+def get_qrcodes_data():
+    """Retorna dados para a Central de QR Codes."""
+    if 'user_id' not in session: return jsonify({"status": "error"}), 403
+    
+    funcionarios = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
+    areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
+    projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
+    atividades = Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()
+    
+    return jsonify({
+        "funcionarios": [{"id": f.id, "nome": f.nome} for f in funcionarios],
+        "areas": [{"id": a.id, "nome": a.nome} for a in areas],
+        "projetos": [{"id": p.id, "nome": p.nome} for p in projetos],
+        "atividades": [{"id": at.id, "nome": at.nome} for at in atividades]
+    })
 
 @app.route('/admin/select_charts', methods=['POST'])
 def select_charts():
@@ -829,7 +955,7 @@ def update_user_status():
     user_id = data.get('user_id')
     new_status = data.get('status')
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user:
         user.status = new_status
         db.session.commit()
@@ -891,7 +1017,7 @@ def atualizar_graficos():
     # --- Aba Registros ---
     ws_reg = wb.active
     ws_reg.title = "Registros"
-    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Hora Início", "Hora Fim", "Hora Total"]
+    headers_reg = ["Data", "ID", "Nome", "Área", "Projeto", "Atividade", "Hora Início", "Hora Fim", "Hora Total"]
     ws_reg.append(headers_reg)
     
     # Estilo dos cabeçalhos
@@ -900,7 +1026,7 @@ def atualizar_graficos():
         cell.alignment = Alignment(horizontal='center')
     
     # Largura das colunas
-    column_widths_reg = [12, 10, 30, 20, 15, 15, 15, 15]
+    column_widths_reg = [12, 10, 30, 20, 20, 20, 15, 15, 15]
     for i, width in enumerate(column_widths_reg, 1):
         ws_reg.column_dimensions[ws_reg.cell(row=1, column=i).column_letter].width = width
 
@@ -911,6 +1037,7 @@ def atualizar_graficos():
             reg.funcionario_nome,
             reg.area_nome,
             reg.projeto_nome,
+            reg.atividade_nome,
             reg.hora_inicio.strftime("%H:%M"),
             reg.hora_fim.strftime("%H:%M") if reg.hora_fim else "Em aberto",
             reg.duracao_formatada
