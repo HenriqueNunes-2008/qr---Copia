@@ -38,6 +38,18 @@
             border-radius: 0 0 50px 50px;
         }
 
+        /* Garante que o logo possa ser posicionado à direita no mobile */
+        .topbar img.logo-topbar {
+            order: 2;
+            margin-left: auto;
+        }
+
+        .topbar .topbar-buttons {
+            order: 1;
+            margin-right: 0;
+        }
+
+
         .topbar-buttons {
             display: flex;
             gap: 10px;
@@ -160,12 +172,47 @@
             cursor: not-allowed;
         }
 
+        @media (max-width: 900px) {
+            .topbar {
+                padding: 0 18px;
+            }
+            .topbar-buttons button {
+                font-size: 1rem;
+                padding: 11px 14px;
+            }
+            .main-container {
+                padding: 2.2rem 0.8rem;
+            }
+        }
+
         @media (max-width: 480px) {
             .topbar {
                 height: 80px;
                 padding: 0 15px;
                 border-radius: 0 0 30px 30px;
             }
+
+            #reader {
+                max-width: 95vw;
+                width: 100%;
+            }
+            #formContainer {
+                max-width: 95vw;
+                width: 100%;
+            }
+
+            .topbar .topbar-buttons {
+                gap: 8px;
+            }
+
+            .topbar-buttons button {
+                font-size: 0.95rem;
+                padding: 10px 12px;
+                border-radius: 8px;
+                white-space: nowrap;
+            }
+
+
             .logo-topbar {
                 max-height: 40px;
             }

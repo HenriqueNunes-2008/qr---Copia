@@ -18,8 +18,9 @@ function iniciarLeitor() {
     html5QrCodeScanner = new Html5Qrcode("reader");
 
     html5QrCodeScanner.start(
-        { facingMode: "environment" },
+        { facingMode: "user" },
         { fps: 10, qrbox: 250 },
+
         async (decodedText) => {
             try {
                 // Lógica de Processamento de QR Codes Padronizados

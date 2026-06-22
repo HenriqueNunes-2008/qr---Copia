@@ -1,7 +1,14 @@
-# TODO
+# TODO - Responsividade Mobile/Tablet (QR Code)
 
-- [ ] Corrigir `Registro_qr/templates/admin.html` removendo os `min-width`/max-width e ajustando layout responsivo/overflow.
-- [ ] Resolver erros de validação CSS/JS introduzidos nas alterações anteriores (há um `@media (max-width: 900px)` com bloco quebrado/indentação incorreta e JS/CSS apontando linha). 
-- [ ] Atualizar `Registro_qr/templates/reports.html` para viewport meta + remover `max-width: 1200px` e ajustar tabelas/containers.
-- [ ] Rodar o app e validar manualmente no mobile (sem zoom/sem scroll horizontal; sidebar colapsável/funcional).
+## Checklist
+- [ ] Script QR: forçar câmera frontal (facingMode: "user")
+- [ ] Index: redimensionar botões Cadastre-se/Login no mobile
+- [ ] Index: alinhar logo/topbar para extremidade direita no mobile
+- [ ] Admin: eliminar qualquer rolagem horizontal no mobile/tablet
+- [ ] Admin: "Cadastrar Funcionário" (input + salvar na mesma linha)
+- [ ] Admin: "Registro de Horas" em layout mobile tipo cards, duas colunas verticais (labels vs valores) sem rolagem
+- [ ] Admin: "Horas Orçadas" sem rolagem horizontal
+- [ ] Reports: layout mais próximo do limite da tela mobile/tablet, sem rolagem horizontal
+- [ ] Reports: converter tabela para layout vertical no mobile/tablet
+- [ ] Testar em viewport mobile e tablet (Chrome devtools) e validar ausência de scroll lateral
 
