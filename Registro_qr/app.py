@@ -512,8 +512,12 @@ def admin():
         return redirect(url_for('index'))
     
     if session.get('acesso') != 'administrativo':
-        # Se não for administrativo, envia para a área neutra de início (evita loop com /admin/reports)
+        # Se não for administrativo, direciona para a área compatível com o acesso real do usuário
+        # (ex.: relator -> /admin/reports). Evita cair no index e "parecer" que login não funcionou.
+        if session.get('acesso') == 'relator':
+            return redirect(url_for('view_reports'))
         return redirect(url_for('index'))
+
 
 
     # Processamento de Filtros
@@ -991,8 +995,11 @@ def view_reports():
         return redirect(url_for('index'))
     
     if session.get('acesso') != 'relator':
-        # Se não for relator, envia para a área neutra de início (evita loop com /admin)
+        # Se não for relator, direciona para a área compatível (administrativo -> /admin)
+        if session.get('acesso') == 'administrativo':
+            return redirect(url_for('admin'))
         return redirect(url_for('index'))
+
 
 
     # Filtros do Relator
