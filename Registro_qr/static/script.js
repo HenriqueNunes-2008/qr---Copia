@@ -273,8 +273,10 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     const response = await fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        credentials: 'include'
     });
+
 
     const result = await response.json();
     if (result.status === 'ok') {

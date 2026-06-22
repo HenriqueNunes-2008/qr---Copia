@@ -31,7 +31,15 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Em produção, deve ser definida via variável de ambiente.
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "uma_chave_secreta_muito_segura_e_longa_para_producao")
 
+# Sessões/cookies: configurações para produção (ex: Render atrás de HTTPS/proxy)
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["REMEMBER_COOKIE_SECURE"] = True
+# Ajuda o Flask a gerar URLs corretas em cenários com proxy/HTTPS
+app.config["PREFERRED_URL_SCHEME"] = "https"
+
 db = SQLAlchemy(app)
+
 migrate = Migrate(app, db)
 bcrypt = Bcrypt(app) # Inicializa o Bcrypt para hash de senhas
 
@@ -504,8 +512,9 @@ def admin():
         return redirect(url_for('index'))
     
     if session.get('acesso') != 'administrativo':
-        # Se for relator, redireciona para a página de relatórios
-        return redirect(url_for('view_reports'))
+        # Se não for administrativo, envia para a área neutra de início (evita loop com /admin/reports)
+        return redirect(url_for('index'))
+
 
     # Processamento de Filtros
     f_areas = request.args.getlist('f_areas')
@@ -982,8 +991,9 @@ def view_reports():
         return redirect(url_for('index'))
     
     if session.get('acesso') != 'relator':
-        # Se for administrativo, redireciona para o painel principal
-        return redirect(url_for('admin'))
+        # Se não for relator, envia para a área neutra de início (evita loop com /admin)
+        return redirect(url_for('index'))
+
 
     # Filtros do Relator
     f_areas = request.args.getlist('f_areas')
