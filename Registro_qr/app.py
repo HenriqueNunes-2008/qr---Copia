@@ -491,7 +491,14 @@ def login():
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "FLASH: Conta aguardando validação ou inativa. Contate o administrador."})
+
+        # Normaliza acesso para evitar problemas com espaços/caixa no banco
+        session['acesso'] = (user.acesso or '').strip().lower()
+
+        return jsonify({"status": "ok"})
+
     return jsonify({"status": "error", "message": "Credenciais inválidas"})
+
 
 @app.route('/logout')
 def logout():
