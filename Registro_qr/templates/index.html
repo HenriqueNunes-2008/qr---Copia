@@ -45,9 +45,17 @@
 
         .logo-topbar {
             max-height: 80px; /* Ajuste o tamanho do logo na topbar */
-            transform:scale(2.50);
-            margin-left: 2%
+            transform: scale(2.1);
+            margin-left: 0;
+            margin-right: 0;
         }
+
+        /* Evita corte/overflow do logo em telas pequenas */
+        .topbar img.logo-topbar {
+            display: block;
+            object-fit: contain;
+        }
+
 
         .main-container {
             width: 100%;
