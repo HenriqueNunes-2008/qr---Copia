@@ -205,16 +205,17 @@
             display: none;
         }
 
-        @media (max-width: 480px) {
-            /* Hide tables */
+        /* Tablet/mobile: cards ativos (não só em 480px) */
+        @media (max-width: 900px) {
             #registros-table-wrap, #orcamentos-table-wrap { display: none !important; }
-
-            /* Show cards */
             #registros-cards, #orcamentos-cards { display: block !important; }
+        }
 
+        @media (max-width: 900px) {
             .reg-card, .orc-card {
                 display: flex;
-                gap: 12px;
+                flex-direction: column;
+                gap: 10px;
                 background: #f8fafc;
                 border: 1px solid #e2e8f0;
                 border-radius: 12px;
@@ -223,39 +224,37 @@
                 align-items: stretch;
             }
 
+            /* alinhamento “linhas” label + valor */
             .reg-card-left, .orc-left {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                min-width: 120px;
-            }
-            .reg-card-right, .orc-right {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
+                display: none;
             }
 
-            .reg-label, .orc-left .reg-label {
-                font-weight: 800;
-                color: #145392;
-                font-size: 0.85rem;
+            .reg-card-right, .orc-right {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
             }
 
             .reg-value {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                align-items: center;
+                column-gap: 10px;
                 color: #1A345B;
                 font-size: 0.9rem;
                 word-break: break-word;
             }
 
+            /* Mantém o edit no rodapé */
             .reg-edit {
                 margin-top: 2px;
                 display: flex;
                 justify-content: flex-end;
             }
+        }
 
-            /* Função: cadastrar funcionário (row) */
+        /* Ajustes finos para telas menores */
+        @media (max-width: 480px) {
             .row-inline {
                 display: flex;
                 gap: 10px;
@@ -384,8 +383,16 @@
             padding: 30px;
             border-radius: 15px;
             width: 500px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            max-width: 100%;
+            box-shadow: 0 5px 15px rgba(0,5,15px,0.3);
             color: #1a345b;
+        }
+
+        @media (max-width: 900px) {
+            .modal-content {
+                width: min(500px, 100vw);
+                padding: 20px 14px;
+            }
         }
         .modal-content h2 {
             margin-top: 0;
@@ -494,7 +501,7 @@
                 <div class="section">
                     <h2>Cadastrar Atividade</h2>
                     <form id="addAtividadeForm">
-<div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px;">
                             <input type="text" id="newAtividade" placeholder="Nome da Atividade" required style="flex: 1;">
                             <button type="submit" style="width: 200px;">Salvar</button>
                         </div>
