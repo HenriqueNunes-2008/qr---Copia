@@ -2,7 +2,7 @@
 venv/
 .venv/
 env/
-
+.devcontainer/
 # Variáveis de ambiente (Segurança!)
 .env
 
