@@ -150,8 +150,12 @@
         .logo-container { text-align: center; margin-bottom: 20px; }
         .logo { max-width: 150px; transform: scale(1.9); object-fit: contain; }
 
-        /* Desktop: tables */
+            /* Desktop: tables */
         .table-wrap { width: 100%; overflow-x: hidden; }
+
+        /* Evita recorte/sintaxe frágil em telas pequenas */
+        #registros-cards, #orcamentos-cards { width: 100%; max-width: 100%; }
+
 
         /* Mobile/tablet menu */
         #mobileMenuButton {
@@ -223,22 +227,13 @@
                 margin-bottom: 12px;
             }
 
-            /* Coluna esquerda (labels) - mantém visível */
-            .reg-card-left, .orc-left {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                flex: 0 0 auto;
-                width: 40%;
-                min-width: 140px;
-            }
 
-            /* Coluna direita (valores) */
+            /* Mantemos as classes existentes para não quebrar compatibilidade */
+            .reg-card-left, .orc-left,
             .reg-card-right, .orc-right {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                width: 60%;
                 min-width: 0;
             }
 
@@ -249,8 +244,6 @@
                 line-height: 1.25;
                 word-break: break-word;
                 margin: 0;
-                display: flex;
-                align-items: center;
             }
 
             .reg-value {
@@ -259,9 +252,37 @@
                 line-height: 1.25;
                 word-break: break-word;
                 min-width: 0;
-                display: flex;
-                align-items: center;
             }
+
+            /* Alinhamento vertical por linha independente (Mobile) */
+            .reg-line {
+                display: flex;
+                align-items: center; 
+                gap: 12px;
+            }
+
+
+            .reg-line-title {
+                flex: 0 0 auto;
+                width: 40%;
+                min-width: 140px;
+            }
+
+            /* Botão de edição tocável no mobile (evita seleção/foco visual travando clique) */
+            .edit-icon-btn {
+                touch-action: manipulation;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                z-index: 3;
+                position: relative;
+            }
+
+
+            .reg-line-value {
+                flex: 1;
+                min-width: 0;
+            }
+
 
             /* Mantém o edit no rodapé */
             .reg-edit {
@@ -666,48 +687,59 @@
                         </div>
                     </form>
 
-                    <!-- Mobile cards (labels × values) -->
+                    <!-- Mobile cards (Título + Valor por linha) -->
                     <div id="registros-cards">
                         {% for reg in registros %}
                         <div class="reg-card">
-                            <div class="reg-card-left">
-                                <div class="reg-label">Data</div>
-                                <div class="reg-label">Funcionário</div>
-                                <div class="reg-label">Área</div>
-                                <div class="reg-label">Projeto</div>
-                                <div class="reg-label">Atividade</div>
-                                <div class="reg-label">Hora Início</div>
-                                <div class="reg-label">Hora Final</div>
-                                <div class="reg-label">Hora Total</div>
-                            </div>
+                            <div class="reg-card-right" style="width: 100%;">
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Data</div>
+                                    <div class="reg-line-value reg-value">{{ reg.data.strftime('%d/%m/%Y') }}</div>
+                                </div>
 
-                            <div class="reg-card-right">
-                                <div class="reg-value">{{ reg.data.strftime('%d/%m/%Y') }}</div>
-                                <div class="reg-value">{{ reg.funcionario_nome }}</div>
-                                <div class="reg-value">{{ reg.area_nome }}</div>
-                                <div class="reg-value">{{ reg.projeto_nome }}</div>
-                                <div class="reg-value">{{ reg.atividade_nome }}</div>
-                                <div class="reg-value">{{ reg.hora_inicio.strftime('%H:%M') }}</div>
-                                <div class="reg-value">{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else 'Em aberto' }}</div>
-                                <div class="reg-value"><strong>{{ reg.duracao_formatada }}</strong></div>
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Funcionário</div>
+                                    <div class="reg-line-value reg-value">{{ reg.funcionario_nome }}</div>
+                                </div>
+
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Área</div>
+                                    <div class="reg-line-value reg-value">{{ reg.area_nome }}</div>
+                                </div>
+
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Projeto</div>
+                                    <div class="reg-line-value reg-value">{{ reg.projeto_nome }}</div>
+                                </div>
+
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Atividade</div>
+                                    <div class="reg-line-value reg-value">{{ reg.atividade_nome }}</div>
+                                </div>
+
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Hora Início</div>
+                                    <div class="reg-line-value reg-value">{{ reg.hora_inicio.strftime('%H:%M') }}</div>
+                                </div>
+
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Hora Final</div>
+                                    <div class="reg-line-value reg-value">{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else 'Em aberto' }}</div>
+                                </div>
+
+                                <div class="reg-line">
+                                    <div class="reg-line-title reg-label">Hora Total</div>
+                                    <div class="reg-line-value reg-value"><strong>{{ reg.duracao_formatada }}</strong></div>
+                                </div>
 
                                 <div class="reg-edit">
-                                    <button class="edit-icon-btn" aria-label="Editar" type="button"
-                                            data-reg-id="{{ reg.id }}"
-                                            data-reg-data="{{ reg.data }}"
-                                            data-reg-inicio="{{ reg.hora_inicio.strftime('%H:%M') }}"
-                                            data-reg-fim="{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}"
-                                            data-reg-emp="{{ reg.funcionario_nome }}"
-                                            data-reg-func-id="{{ reg.funcionario_id }}"
-                                            data-reg-area="{{ reg.area_nome }}"
-                                            data-reg-projeto="{{ reg.projeto_nome }}"
-                                            data-reg-atividade="{{ reg.atividade_nome }}"
-                                            onclick="openEditModalFromDataset(this)">✏️</button>
+                                    <button class="edit-icon-btn" aria-label="Editar" type="button" onclick="openEditModal({{ reg.id }}, '{{ reg.data }}', '{{ reg.hora_inicio.strftime('%H:%M') }}', '{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}', '{{ reg.funcionario_nome }}', '{{ reg.area_nome }}', '{{ reg.projeto_nome }}', {{ reg.funcionario_id }}, '{{ reg.atividade_nome }}')">✏️</button>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
+
 
                     <!-- Desktop table -->
                     <div class="table-wrap" id="registros-table-wrap">
@@ -1060,7 +1092,10 @@
             else alert(result.message);
         }
 
+
+
         // Orçamento
+
         document.getElementById('addOrcamentoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const area = document.getElementById('orcamentoArea').value;
