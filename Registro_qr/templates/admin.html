@@ -197,8 +197,8 @@
             .container { max-width: 100%; padding: 20px 14px; }
 
             button { padding: 12px 14px; font-size: 1rem; }
-            input, select { font-size: 16px; }
         }
+
 
         /* Cards (no horizontal scroll) */
         #registros-cards, #orcamentos-cards {
@@ -209,40 +209,58 @@
         @media (max-width: 900px) {
             #registros-table-wrap, #orcamentos-table-wrap { display: none !important; }
             #registros-cards, #orcamentos-cards { display: block !important; }
-        }
 
-        @media (max-width: 900px) {
+            /* Cards mobile/tablet */
             .reg-card, .orc-card {
                 display: flex;
-                flex-direction: column;
-                gap: 10px;
+                flex-direction: row;
+                align-items: stretch;
+                gap: 12px;
                 background: #f8fafc;
                 border: 1px solid #e2e8f0;
                 border-radius: 12px;
                 padding: 12px;
                 margin-bottom: 12px;
-                align-items: stretch;
             }
 
-            /* alinhamento “linhas” label + valor */
+            /* Coluna esquerda (labels) - mantém visível */
             .reg-card-left, .orc-left {
-                display: none;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                flex: 0 0 auto;
+                width: 40%;
+                min-width: 140px;
             }
 
+            /* Coluna direita (valores) */
             .reg-card-right, .orc-right {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
+                width: 60%;
+                min-width: 0;
+            }
+
+            .reg-label {
+                font-weight: 700;
+                color: #145392;
+                font-size: 0.9rem;
+                line-height: 1.25;
+                word-break: break-word;
+                margin: 0;
+                display: flex;
+                align-items: center;
             }
 
             .reg-value {
-                display: grid;
-                grid-template-columns: 1fr auto;
-                align-items: center;
-                column-gap: 10px;
                 color: #1A345B;
                 font-size: 0.9rem;
+                line-height: 1.25;
                 word-break: break-word;
+                min-width: 0;
+                display: flex;
+                align-items: center;
             }
 
             /* Mantém o edit no rodapé */
@@ -250,6 +268,28 @@
                 margin-top: 2px;
                 display: flex;
                 justify-content: flex-end;
+            }
+
+            /* Ajuste do modal: respirar e evitar recorte */
+            .modal-content {
+                width: 90%;
+                max-width: 520px;
+                margin: 0 auto;
+                box-sizing: border-box;
+                padding: 20px 16px;
+                max-height: calc(100vh - 32px);
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+
+            /* Garante que selects/inputs não cortem no mobile */
+            .modal-field input,
+            .modal-field select,
+            .modal-field textarea {
+                width: 100%;
+                box-sizing: border-box;
+                max-width: 100%;
+                overflow-x: hidden;
             }
         }
 
@@ -370,8 +410,7 @@
             display: none;
             position: fixed;
             z-index: 2000;
-            left: 0;
-            top: 0;
+            inset: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0,0,0,0.5);
@@ -386,14 +425,21 @@
             max-width: 100%;
             box-shadow: 0 5px 15px rgba(0,5,15px,0.3);
             color: #1a345b;
+            box-sizing: border-box;
         }
 
         @media (max-width: 900px) {
             .modal-content {
-                width: min(500px, 100vw);
+                width: calc(100% - 32px);
+                margin: 0 auto;
+                max-height: calc(100vh - 32px);
+                overflow-y: auto;
+                overflow-x: hidden;
                 padding: 20px 14px;
+                box-sizing: border-box;
             }
         }
+
         .modal-content h2 {
             margin-top: 0;
             color: #145392;
@@ -646,7 +692,17 @@
                                 <div class="reg-value"><strong>{{ reg.duracao_formatada }}</strong></div>
 
                                 <div class="reg-edit">
-                                    <button class="edit-icon-btn" aria-label="Editar" onclick="openEditModal({{ reg.id }}, '{{ reg.data }}', '{{ reg.hora_inicio.strftime('%H:%M') }}', '{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}', '{{ reg.funcionario_nome }}', '{{ reg.area_nome }}', '{{ reg.projeto_nome }}', {{ reg.funcionario_id }}, '{{ reg.atividade_nome }}')">✏️</button>
+                                    <button class="edit-icon-btn" aria-label="Editar" type="button"
+                                            data-reg-id="{{ reg.id }}"
+                                            data-reg-data="{{ reg.data }}"
+                                            data-reg-inicio="{{ reg.hora_inicio.strftime('%H:%M') }}"
+                                            data-reg-fim="{{ reg.hora_fim.strftime('%H:%M') if reg.hora_fim else '' }}"
+                                            data-reg-emp="{{ reg.funcionario_nome }}"
+                                            data-reg-func-id="{{ reg.funcionario_id }}"
+                                            data-reg-area="{{ reg.area_nome }}"
+                                            data-reg-projeto="{{ reg.projeto_nome }}"
+                                            data-reg-atividade="{{ reg.atividade_nome }}"
+                                            onclick="openEditModalFromDataset(this)">✏️</button>
                                 </div>
                             </div>
                         </div>
