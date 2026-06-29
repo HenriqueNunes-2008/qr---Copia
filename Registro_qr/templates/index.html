@@ -254,7 +254,11 @@
                     <label for="username">Usuário:</label>
                     <input type="text" id="username" required style="margin-bottom: 15px; display: block;">
                     <label for="password">Senha:</label>
-                    <input type="password" id="password" required style="margin-bottom: 15px; display: block;">
+                    <div style="position: relative; margin-bottom: 15px;">
+                        <input type="password" id="password" required style="display: block; width: 100%; padding-right: 40px;">
+                        <button type="button" id="togglePasswordLogin" aria-label="Mostrar senha" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; font-size: 1.1rem; color: #145392;">👁️</button>
+                    </div>
+
                     <button type="submit" style="width: 100%;">Entrar</button>
                     <button type="button" id="cancelBtn" style="width: 100%; margin-top: 10px; background: #657788;">Cancelar</button>
                 </form>
@@ -271,7 +275,11 @@
                     <label>E-mail:</label>
                     <input type="email" id="regEmail" required style="margin-bottom: 15px; display: block;">
                     <label>Senha:</label>
-                    <input type="password" id="regPass" required style="margin-bottom: 20px; display: block;">
+                    <div style="position: relative; margin-bottom: 20px;">
+                        <input type="password" id="regPass" required style="display: block; width: 100%; padding-right: 40px;">
+                        <button type="button" id="togglePasswordRegister" aria-label="Mostrar senha" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; font-size: 1.1rem; color: #145392;">👁️</button>
+                    </div>
+
                     <button type="submit" style="width: 100%; background-color: #4CBDE0; color: #000000;">Enviar Solicitação</button>
                     <button type="button" onclick="document.getElementById('registerModal').style.display='none'" style="width: 100%; margin-top: 10px; background: #657788;">Cancelar</button>
                 </form>

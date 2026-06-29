@@ -266,10 +266,36 @@ document.getElementById('publicRegisterForm')?.addEventListener('submit', async 
     }
 });
 
+// Toggle de senha (olho)
+(function initPasswordToggles(){
+    const loginToggleBtn = document.getElementById('togglePasswordLogin');
+    const loginPasswordInput = document.getElementById('password');
+
+    if (loginToggleBtn && loginPasswordInput) {
+        loginToggleBtn.addEventListener('click', () => {
+            const isPassword = loginPasswordInput.type === 'password';
+            loginPasswordInput.type = isPassword ? 'text' : 'password';
+            loginToggleBtn.textContent = isPassword ? '🙈' : '👁️';
+        });
+    }
+
+    const registerToggleBtn = document.getElementById('togglePasswordRegister');
+    const registerPasswordInput = document.getElementById('regPass');
+
+    if (registerToggleBtn && registerPasswordInput) {
+        registerToggleBtn.addEventListener('click', () => {
+            const isPassword = registerPasswordInput.type === 'password';
+            registerPasswordInput.type = isPassword ? 'text' : 'password';
+            registerToggleBtn.textContent = isPassword ? '🙈' : '👁️';
+        });
+    }
+})();
+
 document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+
 
     const response = await fetch('/login', {
         method: 'POST',

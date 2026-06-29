@@ -1,5 +1,49 @@
 # Changelog do Projeto QR
 
+## Versão 1.6.0 - Ajustes de Responsividade, Scanner e UI (2026-06-29)
+
+Esta versão foca em melhorias de experiência de uso (mobile/desktop) e ajustes no fluxo do scanner e da interface do administrador.
+
+### Principais Mudanças:
+
+-   **Ajuste do Scanner (Selfie no Mobile):**
+    -   Mudança do parâmetro do `Html5Qrcode.start` para `facingMode: "user"`, forçando a abertura padrão da câmera frontal (selfie) para facilitar validação facial e escaneamento do crachá.
+
+-   **Controle da Sidebar Mobile:**
+    -   Centralização da função `toggleMobileSidebar()` combinada com um manipulador de eventos na janela (`window click handler`), garantindo que a barra lateral feche automaticamente ao tocar em qualquer área cinza fora do menu.
+
+-   **Otimização de Código (Admin):**
+    -   Limpeza de trechos duplicados ou conflitantes de JavaScript no template `admin.html`.
+    -   Remoção de propriedades repetidas no CSS (ex.: tags `overflow-x: hidden` sobressalentes).
+
+-   **Visualização Inteligente de Dados:**
+    -   Criação de contêineres condicionais em `@media (max-width: 480px)`.
+    -   Em desktops, o sistema exibe tabelas limpas e organizadas.
+    -   Em celulares, os registros e orçamentos são listados em cartões de duas colunas (rótulos à esquerda e valores à direita).
+
+-   **Formulários Otimizados:**
+    -   O bloco **"Cadastrar Funcionário"** foi encapsulado em um wrapper `row-inline`, mantendo campos de input e botões na mesma linha física em telas de smartphones.
+
+-   **Preparação de Ambientes / Layout:**
+    -   Isolamento de falhas de renderização encontradas em versões de backup.
+    -   Início dos ajustes de layout para que `index.html` e `reports.html` funcionem perfeitamente sem necessidade de zoom ou barras de rolagem lateral.
+
+-   **Alinhamento Vertical Resiliente (Mobile):**
+    -   Substituição do modelo antigo de duas colunas paralelas (rótulos vs. valores) nos cartões mobile por um sistema de linhas independentes encapsuladas na classe `.reg-line`.
+    -   Uso de `display: flex`, `align-items: center` e `gap` consistente para manter alinhamento mesmo com texto longo (quebra em múltiplas linhas).
+
+-   **Otimização de Touch-Action para Mobile:**
+    -   Reforço no comportamento do botão de edição (ícone do lápis) com propriedades CSS específicas de mobile:
+        - `touch-action: manipulation`
+        - `user-select: none`
+        - `-webkit-tap-highlight-color: transparent`
+    -   Isso elimina delay de clique nativo e evita realces visuais indesejados.
+
+-   **Ícone de Olho na Senha (Login e Cadastro):**
+    -   Implementado ícone 👁️ no login e cadastro para alternar visibilidade da senha no campo em digitação.
+
+---
+
 ## Versão 1.5.0 - Correções no fluxo de QR Codes (Atividade) (2026-06-19)
 
 Esta versão corrige o fluxo de QR Code para popular corretamente o campo **Atividade** para o funcionário.
@@ -112,3 +156,4 @@ Esta versão representa uma refatoração significativa da arquitetura de dados 
 
 -   **Preparação para Hospedagem:**
     -   O `README.md` foi atualizado com instruções para deploy em ambientes de VM como a Magalu Cloud, incluindo a necessidade de configurar Gunicorn e Nginx.
+
