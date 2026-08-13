@@ -478,10 +478,10 @@ def login():
     Verifica credenciais e o status de aprovação do usuário no banco de dados.
     """
     data = request.get_json()
-    username = data.get('username')
+    email = (data.get('email') or '').strip().lower()
     password = data.get('password')
 
-    user = User.query.filter_by(username=username, ativo=True).first()
+    user = User.query.filter(db.func.lower(User.email) == email, User.ativo.is_(True)).first()
 
     if user and bcrypt.check_password_hash(user.password_hash, password):
         if user.status == 'active':
