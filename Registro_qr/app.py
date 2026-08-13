@@ -774,6 +774,15 @@ def edit_registro():
             registro.hora_inicio = datetime.strptime(nova_inicio_str, '%H:%M').time()
         if nova_fim_str:
             registro.hora_fim = datetime.strptime(nova_fim_str, '%H:%M').time()
+
+        # Mantém o status coerente com o encerramento informado pelo administrativo.
+        # Assim, um registro corrigido com hora final não volta a ser finalizado
+        # pelo próximo uso do QR Code do funcionário.
+        if registro.hora_fim:
+            registro.status = 'finalizado'
+        else:
+            registro.status = 'em_andamento'
+
         if nova_area_nome:
             registro.area_nome = nova_area_nome
         if novo_projeto_nome:
