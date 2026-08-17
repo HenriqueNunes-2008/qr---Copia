@@ -12,6 +12,7 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt # Para hash de senhas
+from sqlalchemy import inspect, text
 
 # Carrega as variáveis de ambiente do arquivo .env antes de qualquer configuração
 load_dotenv()
@@ -84,6 +85,9 @@ class Projeto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
     ativo = db.Column(db.Boolean, default=True, nullable=False)
+    finalizado = db.Column(db.Boolean, default=False, nullable=False)
+    finalizado_em = db.Column(db.DateTime, nullable=True)
+    finalizado_por = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
 
     def __repr__(self):
         return f'<Projeto {self.nome}>'
@@ -211,7 +215,7 @@ def load_initial_data_from_db():
     global AREAS, PROJETOS, ATIVIDADES, CHARTS
     with app.app_context():
         AREAS[:] = [area.nome for area in Area.query.filter_by(ativo=True).order_by(Area.nome).all()]
-        PROJETOS[:] = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()]
+        PROJETOS[:] = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True, finalizado=False).order_by(Projeto.nome).all()]
         ATIVIDADES[:] = [at.nome for at in Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()]
         try:
             # Mantém a configuração de gráficos em config.json por enquanto
@@ -225,7 +229,7 @@ def load_initial_data_from_db():
             print("Erro ao ler config.json. Usando configuração de gráficos padrão.")
             pass
 
-def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, data_inicio=None, data_fim=None):
+def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, data_inicio=None, data_fim=None, project_status='active'):
     """
     Calcula e retorna os dados processados para relatórios (horas trabalhadas, orçadas, etc.).
     Suporta filtros opcionais.
@@ -237,6 +241,12 @@ def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, dat
     """
     query_reg = Registro.query
     query_orc = Orcamento.query
+
+    if project_status != 'all':
+        finalizado = project_status == 'finalized'
+        project_names = [p.nome for p in Projeto.query.filter_by(ativo=True, finalizado=finalizado).all()]
+        query_reg = query_reg.filter(Registro.projeto_nome.in_(project_names))
+        query_orc = query_orc.filter(Orcamento.projeto_nome.in_(project_names))
 
     if areas:
         query_reg = query_reg.filter(Registro.area_nome.in_(areas))
@@ -278,6 +288,7 @@ def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, dat
                 pass
 
     report_data = []
+    project_id_by_name = {project.nome: project.id for project in Projeto.query.all()}
     for orc in all_orcamentos_db:
         key = f"{orc.area_nome} - {orc.projeto_nome}"
         trabalhadas = horas_trabalhadas.get(key, 0)
@@ -289,6 +300,7 @@ def _get_processed_report_data(areas=None, projetos=None, funcionarios=None, dat
             "key": key,
             "area_nome": orc.area_nome,
             "projeto_nome": orc.projeto_nome,
+            "projeto_id": project_id_by_name.get(orc.projeto_nome),
             "horas_trabalhadas": round(trabalhadas, 2),
             "horas_orcadas": orcadas,
             "horas_restantes": round(restantes, 2),
@@ -305,6 +317,25 @@ def criar_planilha_se_nao_existir():
     """
     if not os.path.exists(EXCEL_FILE):
         atualizar_graficos()
+
+def garantir_colunas_finalizacao_projeto():
+    """Atualiza bancos já existentes com os campos de finalização do projeto."""
+    inspector = inspect(db.engine)
+    table_name = Projeto.__table__.name
+    columns = {column['name'] for column in inspector.get_columns(table_name)}
+    dialect = db.engine.dialect.name
+    bool_default = 'FALSE' if dialect == 'postgresql' else '0'
+    statements = []
+    if 'finalizado' not in columns:
+        statements.append(f'ALTER TABLE {table_name} ADD COLUMN finalizado BOOLEAN NOT NULL DEFAULT {bool_default}')
+    if 'finalizado_em' not in columns:
+        statements.append(f'ALTER TABLE {table_name} ADD COLUMN finalizado_em TIMESTAMP')
+    if 'finalizado_por' not in columns:
+        statements.append(f'ALTER TABLE {table_name} ADD COLUMN finalizado_por INTEGER')
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
 
 @app.route('/')
 def index():
@@ -382,6 +413,10 @@ def registrar():
             area = data_payload.get("area")
             projeto = data_payload.get("projeto")
             atividade = data_payload.get("atividade")
+
+            projeto_ativo = Projeto.query.filter_by(nome=projeto, ativo=True, finalizado=False).first()
+            if not projeto_ativo:
+                return jsonify({"status": "error", "message": "Este projeto foi finalizado ou não está disponível para novos registros."})
             
             novo_registro = Registro(
                 data=agora.date(),
@@ -443,7 +478,7 @@ def config_js():
     """
     # Carrega as áreas e projetos do banco de dados para o frontend
     areas_db = [area.nome for area in Area.query.filter_by(ativo=True).order_by(Area.nome).all()]
-    projetos_db = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()]
+    projetos_db = [projeto.nome for projeto in Projeto.query.filter_by(ativo=True, finalizado=False).order_by(Projeto.nome).all()]
 
     areas_json = json.dumps(areas_db)
     projetos_json = json.dumps(projetos_db)
@@ -561,7 +596,8 @@ def admin():
         projetos=f_projetos,
         funcionarios=f_funcionarios,
         data_inicio=f_inicio if f_inicio else None,
-        data_fim=f_fim if f_fim else None
+        data_fim=f_fim if f_fim else None,
+        project_status='active'
     )
 
     # Calcula o total de horas dos registros filtrados
@@ -569,7 +605,7 @@ def admin():
 
     # Carrega todos os dados necessários para exibir no painel de administração
     areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
-    projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
+    projetos = Projeto.query.filter_by(ativo=True, finalizado=False).order_by(Projeto.nome).all()
     atividades_list = Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()
     employees = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
     users = User.query.filter_by(ativo=True).order_by(User.username).all() # Para gestão de usuários
@@ -641,6 +677,9 @@ def add_projeto():
         if existing_projeto:
             if not existing_projeto.ativo:
                 existing_projeto.ativo = True # Reativa se já existia inativa
+                existing_projeto.finalizado = False
+                existing_projeto.finalizado_em = None
+                existing_projeto.finalizado_por = None
                 db.session.commit()
                 load_initial_data_from_db()
                 return jsonify({"status": "ok"})
@@ -661,6 +700,8 @@ def delete_projeto():
     projeto_nome = data.get('projeto')
     projeto = Projeto.query.filter_by(nome=projeto_nome).first()
     if projeto:
+        if projeto.finalizado:
+            return jsonify({"status": "error", "message": "Projetos finalizados devem permanecer no histórico."})
         projeto.ativo = False # Soft Delete
         db.session.commit()
         load_initial_data_from_db()
@@ -739,6 +780,8 @@ def edit_registro():
     registro = db.session.get(Registro, reg_id)
     if not registro:
         return jsonify({"status": "error", "message": "Registro não encontrado."})
+    if Projeto.query.filter_by(nome=registro.projeto_nome, finalizado=True).first():
+        return jsonify({"status": "error", "message": "Não é possível alterar registros de um projeto finalizado."})
 
     # Validações para Área e Projeto
     if nova_area_nome:
@@ -746,7 +789,7 @@ def edit_registro():
         if not area_existe:
             return jsonify({"status": "error", "message": f"Área '{nova_area_nome}' não encontrada ou inativa."})
     if novo_projeto_nome:
-        projeto_existe = Projeto.query.filter_by(nome=novo_projeto_nome, ativo=True).first()
+        projeto_existe = Projeto.query.filter_by(nome=novo_projeto_nome, ativo=True, finalizado=False).first()
         if not projeto_existe:
             return jsonify({"status": "error", "message": f"Projeto '{novo_projeto_nome}' não encontrado ou inativo."})
     if nova_atividade_nome:
@@ -830,6 +873,9 @@ def add_orcamento():
     except ValueError:
         return jsonify({"status": "error", "message": "Horas orçadas devem ser um número válido."})
 
+    if not Projeto.query.filter_by(nome=projeto, ativo=True, finalizado=False).first():
+        return jsonify({"status": "error", "message": "Não é possível alterar o orçamento de um projeto finalizado ou inativo."})
+
     # Tenta encontrar um orçamento existente para a combinação de área/projeto/número
     orcamento = Orcamento.query.filter_by(
         area_nome=area,
@@ -893,7 +939,7 @@ def get_qrcodes_data():
     
     funcionarios = Funcionario.query.filter_by(ativo=True).order_by(Funcionario.nome).all()
     areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
-    projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
+    projetos = Projeto.query.filter_by(ativo=True, finalizado=False).order_by(Projeto.nome).all()
     atividades = Atividade.query.filter_by(ativo=True).order_by(Atividade.nome).all()
     
     return jsonify({
@@ -934,7 +980,8 @@ def api_orcamentos():
     Retorna a lista de orçamentos cadastrados no banco de dados.
     Substitui a leitura de orcamentos.json.
     """
-    orcamentos = Orcamento.query.filter_by(ativo=True).order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
+    projetos_ativos = [p.nome for p in Projeto.query.filter_by(ativo=True, finalizado=False).all()]
+    orcamentos = Orcamento.query.filter(Orcamento.ativo.is_(True), Orcamento.projeto_nome.in_(projetos_ativos)).order_by(Orcamento.area_nome, Orcamento.projeto_nome).all()
     return jsonify([
         {
             "area": o.area_nome,
@@ -1010,10 +1057,7 @@ def view_reports():
     if 'user_id' not in session:
         return redirect(url_for('index'))
     
-    if session.get('acesso') != 'relator':
-        # Se não for relator, direciona para a área compatível (administrativo -> /admin)
-        if session.get('acesso') == 'administrativo':
-            return redirect(url_for('admin'))
+    if session.get('acesso') not in ('relator', 'administrativo'):
         return redirect(url_for('index'))
 
 
@@ -1024,26 +1068,69 @@ def view_reports():
 
     all_registros, all_orcamentos_db, report_data = _get_processed_report_data(
         areas=f_areas,
-        projetos=f_projetos
+        projetos=f_projetos,
+        project_status='active'
     )
     
     # Carrega opções para os filtros
     areas = Area.query.filter_by(ativo=True).order_by(Area.nome).all()
-    projetos = Projeto.query.filter_by(ativo=True).order_by(Projeto.nome).all()
+    projetos = Projeto.query.filter_by(ativo=True, finalizado=False).order_by(Projeto.nome).all()
 
     return render_template('reports.html', 
                            report_data=report_data, # Dados processados para a tabela de gráficos
                            areas=areas,
                            projetos=projetos,
                            f_areas=f_areas,
-                           f_projetos=f_projetos)
+                           f_projetos=f_projetos,
+                           acesso=session.get('acesso'),
+                           projeto_individual=None)
+
+@app.route('/admin/projetos-finalizados')
+def projetos_finalizados():
+    if 'user_id' not in session or session.get('acesso') not in ('relator', 'administrativo'):
+        return redirect(url_for('index'))
+    projetos = Projeto.query.filter_by(ativo=True, finalizado=True).order_by(Projeto.finalizado_em.desc(), Projeto.nome).all()
+    return render_template('finished_projects.html', projetos=projetos, acesso=session.get('acesso'))
+
+@app.route('/admin/projetos-finalizados/<int:projeto_id>')
+def relatorio_projeto_finalizado(projeto_id):
+    if 'user_id' not in session or session.get('acesso') not in ('relator', 'administrativo'):
+        return redirect(url_for('index'))
+    projeto = db.session.get(Projeto, projeto_id)
+    if not projeto or not projeto.ativo or not projeto.finalizado:
+        return redirect(url_for('projetos_finalizados'))
+    registros, _, report_data = _get_processed_report_data(projetos=[projeto.nome], project_status='finalized')
+    return render_template('reports.html', report_data=report_data, areas=[], projetos=[],
+                           f_areas=[], f_projetos=[], acesso=session.get('acesso'),
+                           projeto_individual=projeto, registros=registros)
+
+@app.route('/admin/finalizar_projeto', methods=['POST'])
+def finalizar_projeto():
+    if session.get('acesso') != 'administrativo':
+        return jsonify({"status": "error", "message": "Não autorizado"}), 403
+    projeto_id = (request.get_json() or {}).get('projeto_id')
+    projeto = db.session.get(Projeto, projeto_id)
+    if not projeto or not projeto.ativo:
+        return jsonify({"status": "error", "message": "Projeto não encontrado."}), 404
+    if projeto.finalizado:
+        return jsonify({"status": "error", "message": "Este projeto já foi finalizado."})
+    if Registro.query.filter_by(projeto_nome=projeto.nome, status='em_andamento').first():
+        return jsonify({"status": "error", "message": "Finalize os registros de horas em andamento antes de encerrar o projeto."})
+    projeto.finalizado = True
+    projeto.finalizado_em = datetime.now()
+    projeto.finalizado_por = session.get('user_id')
+    db.session.commit()
+    load_initial_data_from_db()
+    atualizar_graficos()
+    return jsonify({"status": "ok", "message": "Projeto finalizado e movido para o histórico."})
 
 def atualizar_graficos():
     """
     Gera um novo arquivo Excel 'registros.xlsx' do zero para evitar corrupção.
     Popula as abas 'Registros', 'Orçamentos' e 'Gráficos' com dados do banco.
     """
-    all_registros, all_orcamentos_db, report_data = _get_processed_report_data()
+    # A planilha é o histórico completo: projetos finalizados continuam nela.
+    all_registros, all_orcamentos_db, report_data = _get_processed_report_data(project_status='all')
     
     wb = Workbook()
 
@@ -1152,6 +1239,7 @@ def atualizar_graficos():
 # independentemente de como o app é iniciado (Gunicorn ou Python direto)
 with app.app_context():
     db.create_all()
+    garantir_colunas_finalizacao_projeto()
     # Garante que o arquivo Excel e as abas existam
     criar_planilha_se_nao_existir()
     load_initial_data_from_db()

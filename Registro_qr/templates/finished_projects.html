@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Projetos Finalizados</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; min-height: 100vh; font-family: 'Montserrat', sans-serif; background: #145392; color: #1A345B; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 40px; border-radius: 15px; background: white; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+        h1 { color: #145392; text-align: center; }
+        .nav { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; }
+        .nav a, .project-link { text-decoration: none; font-weight: 700; border-radius: 8px; }
+        .nav a { padding: 10px 14px; background: #f0f4f8; border: 1px solid #cbd5e1; color: #145392; }
+        .project-link { display: block; color: #1A345B; background: #f8fafc; border: 1px solid #cbd5e1; padding: 18px; margin: 12px 0; }
+        .project-link:hover { border-color: #4CBDE0; background: #eefbff; }
+        small { color: #657788; }
+        .empty { padding: 25px; text-align: center; background: #f8fafc; border-radius: 8px; color: #657788; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>Projetos Finalizados</h1>
+        <nav class="nav">
+            {% if acesso == 'administrativo' %}<a href="/admin">Painel Administrativo</a>{% endif %}
+            <a href="/admin/reports">Relatórios Ativos</a>
+            <a href="/logout" style="color:#c2410c;">Sair</a>
+        </nav>
+        {% for projeto in projetos %}
+        <a class="project-link" href="/admin/projetos-finalizados/{{ projeto.id }}">
+            {{ projeto.nome }}<br>
+            <small>Finalizado em {{ projeto.finalizado_em.strftime('%d/%m/%Y %H:%M') if projeto.finalizado_em else '-' }}</small>
+        </a>
+        {% else %}
+        <div class="empty">Nenhum projeto finalizado.</div>
+        {% endfor %}
+    </main>
+</body>
+</html>

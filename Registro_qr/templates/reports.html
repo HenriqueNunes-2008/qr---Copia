@@ -134,6 +134,10 @@
             padding: 2px 0;
             color: #1e293b;
         }
+        .report-nav { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .report-nav a { padding: 10px 14px; border-radius: 8px; background: #f0f4f8; color: #145392; text-decoration: none; font-weight: 700; border: 1px solid #cbd5e1; }
+        .finalize-button { background: #c2410c; color: white; border: 0; border-radius: 7px; padding: 8px 10px; cursor: pointer; font-weight: 700; }
+        .project-note { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -141,11 +145,22 @@
         <div class="logo-container">
             <img src="/static/LogoFlexcolor2.png" alt="Logo Fleximedical" class="logo">
         </div>
-        <h1>Relatórios de Horas</h1>
+        <h1>{% if projeto_individual %}Relatório: {{ projeto_individual.nome }}{% else %}Relatórios de Horas{% endif %}</h1>
 
         <div style="text-align: right;"><a href="/logout" style="color: #ff6b6b; font-weight: bold; text-decoration: none;">Sair</a></div>
 
+        <nav class="report-nav">
+            {% if acesso == 'administrativo' %}<a href="/admin">Painel Administrativo</a>{% endif %}
+            <a href="/admin/reports">Relatórios Ativos</a>
+            <a href="/admin/projetos-finalizados">Projetos Finalizados</a>
+        </nav>
+
+        {% if projeto_individual %}
+        <div class="project-note">Projeto finalizado em {{ projeto_individual.finalizado_em.strftime('%d/%m/%Y %H:%M') if projeto_individual.finalizado_em else '-' }}. Este relatório é somente para consulta.</div>
+        {% endif %}
+
         <!-- Área de Filtros do Relator -->
+        {% if not projeto_individual %}
         <form action="/admin/reports" method="GET">
             <div class="relator-filters">
                 <div class="filter-col">
@@ -176,6 +191,18 @@
                 </div>
             </div>
         </form>
+        {% endif %}
+
+        {% if acesso == 'administrativo' and not projeto_individual %}
+        <div class="project-note" style="background:#eefbff; border-color:#4CBDE0; color:#145392; text-align:left;">
+            <label for="projectToFinalize">Finalizar projeto:</label>
+            <select id="projectToFinalize" style="margin: 0 10px; padding: 8px; border-radius: 6px; border: 1px solid #94a3b8;">
+                <option value="">Selecione um projeto</option>
+                {% for projeto in projetos %}<option value="{{ projeto.id }}" data-nome="{{ projeto.nome }}">{{ projeto.nome }}</option>{% endfor %}
+            </select>
+            <button class="finalize-button" type="button" onclick="finalizarProjetoSelecionado()">Finalizar projeto</button>
+        </div>
+        {% endif %}
 
         <h2>Seção 1: Resumo de Horas</h2>
         <table>
@@ -212,9 +239,47 @@
             <h2>Seção 3: Percentual de Desenvolvimento dos Projetos</h2>
             <div id="donutContainer" class="donut-grid"></div>
         </div>
+
+        {% if acesso == 'administrativo' and projeto_individual %}
+        <h2>Registros de Horas</h2>
+        <table>
+            <thead><tr><th>Data</th><th>Funcionário</th><th>Área</th><th>Atividade</th><th>Início</th><th>Fim</th><th>Total</th></tr></thead>
+            <tbody>
+                {% for registro in registros %}
+                <tr>
+                    <td>{{ registro.data.strftime('%d/%m/%Y') }}</td><td>{{ registro.funcionario_nome }}</td>
+                    <td>{{ registro.area_nome }}</td><td>{{ registro.atividade_nome }}</td>
+                    <td>{{ registro.hora_inicio.strftime('%H:%M') }}</td><td>{{ registro.hora_fim.strftime('%H:%M') if registro.hora_fim else 'Em aberto' }}</td>
+                    <td>{{ registro.duracao_formatada }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7">Nenhum registro encontrado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
     </div>
 
     <script>
+        function finalizarProjetoSelecionado() {
+            const select = document.getElementById('projectToFinalize');
+            if (!select.value) { alert('Selecione um projeto.'); return; }
+            finalizarProjeto(Number(select.value), select.options[select.selectedIndex].dataset.nome);
+        }
+        async function finalizarProjeto(projetoId, projetoNome) {
+            if (!confirm(`Finalizar o projeto "${projetoNome}"? Ele sairá das telas principais e novos registros ou orçamentos ficarão bloqueados.`)) return;
+            const response = await fetch('/admin/finalizar_projeto', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projeto_id: projetoId })
+            });
+            const result = await response.json();
+            if (result.status === 'ok') {
+                alert(result.message);
+                window.location.href = '/admin/projetos-finalizados';
+            } else {
+                alert(result.message || 'Não foi possível finalizar o projeto.');
+            }
+        }
         const reportData = {{ report_data | tojson | safe }} || [];
 
         // Configuração do Gráfico de Barras (Seção 2)
