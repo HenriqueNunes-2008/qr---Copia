@@ -1,5 +1,29 @@
 # Changelog do Projeto QR
 
+## Versão 1.7.0 - Gestão de Projetos Finalizados e Histórico de Relatórios (2026-08-17)
+
+Esta versão adiciona o ciclo de encerramento de projetos, preservando o histórico e separando o painel ativo do histórico finalizado.
+
+### Principais Mudanças:
+
+-   **Encerramento de projetos com auditoria de status:**
+    -   O modelo `Projeto` passou a registrar `finalizado`, `finalizado_em` e `finalizado_por` para controlar o momento e o responsável pelo encerramento.
+    -   A rota `/admin/finalizar_projeto` bloqueia encerramentos duplicados e impede o fechamento de projetos com registros em andamento.
+-   **Histórico de projetos finalizados:**
+    -   Implementada a página `/admin/projetos-finalizados`, com listagem dos projetos encerrados em ordem cronológica.
+    -   Cada projeto finalizado pode ser acessado em um relatório isolado, somente para consulta.
+-   **Separação entre ativos e finalizados no relatório:**
+    -   O sistema agora distingue projetos ativos e finalizados ao montar os dados de relatório e gráficos.
+    -   Projetos concluídos permanecem no histórico completo da planilha, sem serem removidos do contexto geral de dados.
+-   **Restrições de edição e orçamentos:**
+    -   Registros vinculados a projetos finalizados não podem mais ser alterados pelo painel administrativo.
+    -   Orçamentos de projetos encerrados são protegidos para evitar inconsistências após o fechamento.
+-   **Ajustes na interface administrativa:**
+    -   Adicionados links de navegação para "Projetos Finalizados" nos menus de administração e relatórios.
+    -   Página de histórico com design dedicado e indicação clara de data de finalização.
+
+---
+
 ## Versão 1.6.0 - Ajustes de Responsividade, Scanner e UI (2026-06-29)
 
 Esta versão foca em melhorias de experiência de uso (mobile/desktop) e ajustes no fluxo do scanner e da interface do administrador.
